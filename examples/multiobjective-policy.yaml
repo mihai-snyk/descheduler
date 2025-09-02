@@ -1,0 +1,21 @@
+apiVersion: "descheduler/v1alpha2"
+kind: "DeschedulerPolicy"
+profiles:
+  - name: MultiObjectiveProfile
+    pluginConfig:
+    - name: "DefaultEvictor"
+      args:
+        ignorePvcPods: false
+        evictLocalStoragePods: true
+    - name: "MultiObjective"
+      args:
+        maxEvictionsPerCycle: 5
+        populationSize: 50
+        generations: 100
+    plugins:
+      filter:
+        enabled:
+          - "DefaultEvictor"
+      balance:
+        enabled:
+          - "MultiObjective"  

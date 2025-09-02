@@ -1,0 +1,110 @@
+Desmos Formulas for Multi-Objective Functions
+============================================
+
+Copy and paste these into Desmos (www.desmos.com/calculator)
+
+1. DISRUPTION OBJECTIVE
+----------------------
+# Parameters (add sliders for these)
+n = 20         # Total pods (slider: 1-100)
+m = 5          # Pods moved (slider: 0-100)
+c = 2          # Average cold start in minutes (slider: 0-10)
+t = 3          # Time slots disrupted (slider: 0-10)
+w_m = 0.4      # Weight for movement (slider: 0-1)
+w_c = 0.35     # Weight for cold start (slider: 0-1)
+w_t = 0.25     # Weight for time slots (slider: 0-1)
+
+# Disruption function
+D(m,n,c,t) = w_m * (m/n) + w_c * (c/1) + w_t * (t/10)
+
+# Plot disruption vs pods moved
+y = D(x, n, c, t)  {0 ≤ x ≤ n}
+
+
+2. COST OBJECTIVE
+-----------------
+# Parameters (add sliders)
+f = 5          # Current cost (slider: 0-20)
+f_min = 2      # Minimum possible cost (slider: 0-20)
+f_max = 10     # Maximum possible cost (slider: 0-20)
+
+# Cost normalization (Deb's formula)
+C(f) = (f - f_min) / (f_max - f_min)
+
+# Plot normalized cost
+y = C(x)  {f_min ≤ x ≤ f_max}
+
+
+3. BALANCE OBJECTIVE
+-------------------
+# Parameters (add sliders)
+s_cpu = 15     # CPU standard deviation % (slider: 0-50)
+s_mem = 20     # Memory standard deviation % (slider: 0-50)
+w_cpu = 0.5    # CPU weight (slider: 0-1)
+w_mem = 0.5    # Memory weight (slider: 0-1)
+
+# Balance function
+B(s_cpu, s_mem) = w_cpu * (s_cpu/50) + w_mem * (s_mem/50)
+
+# Plot balance vs CPU stddev
+y = B(x, s_mem)  {0 ≤ x ≤ 50}
+
+
+4. COMBINED PARETO FRONT (2D)
+-----------------------------
+# For visualizing trade-offs between any two objectives
+# Example: Cost vs Disruption
+
+# Parameter space
+t = [0, 1]  # Parameter from 0 to 1
+
+# Parametric equations for a sample Pareto front
+X(t) = t^2                    # Cost objective
+Y(t) = (1-t)^2               # Disruption objective
+
+# Plot the Pareto front
+(X(t), Y(t))
+
+
+5. 3D PARETO SURFACE
+-------------------
+# For visualizing all three objectives
+# Use Desmos 3D calculator: https://www.desmos.com/3d
+
+# Example Pareto surface
+z = 1 - x - y  {x ≥ 0, y ≥ 0, x + y ≤ 1}
+
+Where:
+- x = Cost objective
+- y = Disruption objective  
+- z = Balance objective
+
+
+TIPS FOR DESMOS:
+---------------
+1. Click on the parameters to add sliders
+2. Adjust slider ranges by clicking the slider settings
+3. You can add multiple functions to compare different scenarios
+4. Use different colors for different objectives
+5. Add points to mark specific solutions: (cost_value, disruption_value)
+6. Use inequalities to shade feasible regions
+
+EXAMPLE COMBINED VISUALIZATION:
+------------------------------
+# Define all three objectives as functions of a solution parameter p
+p = 0.5  # Solution parameter (slider: 0-1)
+
+# Objectives as functions of p
+cost(p) = p^2
+disruption(p) = (1-p)^2  
+balance(p) = 2*p*(1-p)
+
+# Plot all three
+y = cost(x)      {color: green}
+y = disruption(x) {color: red}
+y = balance(x)    {color: orange}
+
+# Mark current solution
+(p, cost(p))      {color: green}
+(p, disruption(p)) {color: red}
+(p, balance(p))    {color: orange}

@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/descheduler/pkg/apis/componentconfig"
 	componentconfigv1alpha1 "sigs.k8s.io/descheduler/pkg/apis/componentconfig/v1alpha1"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/defaultevictor"
+	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/nodeutilization"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/podlifetime"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/removeduplicates"
@@ -53,6 +54,7 @@ func init() {
 	utilruntime.Must(removepodsviolatingnodeaffinity.AddToScheme(Scheme))
 	utilruntime.Must(removepodsviolatingnodetaints.AddToScheme(Scheme))
 	utilruntime.Must(removepodsviolatingtopologyspreadconstraint.AddToScheme(Scheme))
+	utilruntime.Must(multiobjective.AddToScheme(Scheme))
 
 	utilruntime.Must(componentconfig.AddToScheme(Scheme))
 	utilruntime.Must(componentconfigv1alpha1.AddToScheme(Scheme))

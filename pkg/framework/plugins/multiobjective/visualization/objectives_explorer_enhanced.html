@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Objective Function Explorer - Enhanced</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .control-group h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        .slider-container {
+            margin: 10px 0;
+        }
+        .slider-container label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .slider-value {
+            display: inline-block;
+            width: 60px;
+            text-align: right;
+            font-weight: normal;
+            color: #666;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+        .plot-container {
+            height: 400px;
+            margin: 20px 0;
+        }
+        .results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .result-box {
+            text-align: center;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            position: relative;
+        }
+        .result-box.disruption {
+            background: #ffebee;
+        }
+        .result-box.cost {
+            background: #e8f5e9;
+        }
+        .result-box.balance {
+            background: #fff3e0;
+        }
+        .result-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .result-label {
+            font-size: 18px;
+            color: #666;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .calculation-breakdown {
+            text-align: left;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255,255,255,0.5);
+            border-radius: 4px;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .formula {
+            font-family: 'Courier New', monospace;
+            background: rgba(0,0,0,0.05);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        
+        /* Pod/Node Assignment Styles */
+        .assignment-container {
+            display: grid;
+            grid-template-columns: 1fr 3fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .nodes-panel {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+        }
+        .node-item {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .node-item:hover {
+            border-color: #2196F3;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .node-item.selected {
+            border-color: #2196F3;
+            background: #e3f2fd;
+        }
+        .node-stats {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .pods-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            min-height: 200px;
+        }
+        .pod-item {
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            border: 2px solid #ddd;
+            text-align: center;
+            cursor: move;
+            transition: all 0.2s;
+        }
+        .pod-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .pod-item.dragging {
+            opacity: 0.5;
+        }
+        .pod-stats {
+            font-size: 10px;
+            color: #666;
+            margin-top: 4px;
+        }
+        .node-pods {
+            min-height: 60px;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .node-pods .pod-item {
+            cursor: move;
+            font-size: 12px;
+            padding: 4px 8px;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        .utilization-bar {
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            margin: 5px 0;
+            overflow: hidden;
+        }
+        .utilization-fill {
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.3s;
+        }
+        .utilization-fill.warning {
+            background: #FF9800;
+        }
+        .utilization-fill.danger {
+            background: #F44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>Multi-Objective Function Explorer - Enhanced</h1>
+    
+    <div class="info">
+        <strong>Instructions:</strong> Configure the cluster below, drag pods to different nodes, and see how objectives change in real-time. 
+        All objectives are normalized to [0, 1] range where 0 is best and 1 is worst.
+    </div>
+
+    <!-- Pod/Node Assignment Simulator -->
+    <div class="container">
+        <h2>Cluster Configuration & Pod Assignment</h2>
+        
+        <div class="controls">
+            <div class="control-group">
+                <h3>Quick Setup</h3>
+                <button onclick="setupScenario('small')">Small Cluster</button>
+                <button onclick="setupScenario('medium')">Medium Cluster</button>
+                <button onclick="setupScenario('large')">Large Cluster</button>
+                <button onclick="randomAssignment()">Random Assignment</button>
+                <button onclick="optimalAssignment()">Cost-Optimal Assignment</button>
+            </div>
+        </div>
+        
+        <div class="assignment-container">
+            <div class="nodes-panel">
+                <h3>Nodes</h3>
+                <div id="nodes-list"></div>
+            </div>
+            <div>
+                <h3>Pods (Drag to assign to nodes)</h3>
+                <div class="pods-grid" id="unassigned-pods"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results with Calculation Breakdowns -->
+    <div class="container">
+        <h2>Objective Values & Calculations</h2>
+        <div class="results">
+            <div class="result-box disruption">
+                <div class="result-label">Disruption</div>
+                <div class="result-value" id="disruption-result">0.000</div>
+                <div class="calculation-breakdown" id="disruption-breakdown"></div>
+            </div>
+            <div class="result-box cost">
+                <div class="result-label">Cost</div>
+                <div class="result-value" id="cost-result">0.000</div>
+                <div class="calculation-breakdown" id="cost-breakdown"></div>
+            </div>
+            <div class="result-box balance">
+                <div class="result-label">Balance</div>
+                <div class="result-value" id="balance-result">0.000</div>
+                <div class="calculation-breakdown" id="balance-breakdown"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PDB Constraints and Feasible Movements -->
+    <div class="container">
+        <h2>PDB Constraints & Feasible Movements</h2>
+        <div id="pdb-analysis" style="background: #f8f9fa; padding: 15px; border-radius: 6px;">
+            <p>Loading PDB analysis...</p>
+        </div>
+    </div>
+
+    <!-- Manual Controls -->
+    <div class="container">
+        <h2>Manual Parameter Controls</h2>
+        <div class="controls">
+            <!-- Disruption Parameters -->
+            <div class="control-group">
+                <h3>Disruption Parameters</h3>
+                <div class="slider-container">
+                    <label>Average Cold Start (min): <span class="slider-value" id="avgColdStart-value">2.0</span></label>
+                    <input type="range" id="avgColdStart" min="0" max="10" value="2" step="0.1">
+                </div>
+                <div class="slider-container">
+                    <label>Max Time Slots Disrupted: <span class="slider-value" id="timeSlots-value">3</span></label>
+                    <input type="range" id="timeSlots" min="0" max="10" value="3" step="1">
+                </div>
+                <div class="slider-container">
+                    <label>Weight - Movement: <span class="slider-value" id="wMove-value">0.40</span></label>
+                    <input type="range" id="wMove" min="0" max="1" value="0.4" step="0.01">
+                </div>
+                <div class="slider-container">
+                    <label>Weight - Cold Start: <span class="slider-value" id="wCold-value">0.35</span></label>
+                    <input type="range" id="wCold" min="0" max="1" value="0.35" step="0.01">
+                </div>
+                <div class="slider-container">
+                    <label>Weight - Time Slots: <span class="slider-value" id="wTime-value">0.25</span></label>
+                    <input type="range" id="wTime" min="0" max="1" value="0.25" step="0.01">
+                </div>
+            </div>
+
+            <!-- Cost Parameters -->
+            <div class="control-group">
+                <h3>Cost Parameters</h3>
+                <div class="slider-container">
+                    <label>Min Cost Estimate ($/hr): <span class="slider-value" id="minCost-value">2.0</span></label>
+                    <input type="range" id="minCost" min="0" max="20" value="2" step="0.1">
+                </div>
+                <div class="slider-container">
+                    <label>Max Cost Estimate ($/hr): <span class="slider-value" id="maxCost-value">10.0</span></label>
+                    <input type="range" id="maxCost" min="0" max="20" value="10" step="0.1">
+                </div>
+            </div>
+
+            <!-- Balance Parameters -->
+            <div class="control-group">
+                <h3>Balance Parameters</h3>
+                <div class="slider-container">
+                    <label>Weight - CPU: <span class="slider-value" id="wCPU-value">0.50</span></label>
+                    <input type="range" id="wCPU" min="0" max="1" value="0.5" step="0.01">
+                </div>
+                <div class="slider-container">
+                    <label>Weight - Memory: <span class="slider-value" id="wMem-value">0.50</span></label>
+                    <input type="range" id="wMem" min="0" max="1" value="0.5" step="0.01">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cluster state
+        let nodes = [];
+        let pods = [];
+        let originalAssignment = {};  // pod -> node mapping
+        let currentAssignment = {};   // pod -> node mapping
+        let selectedNode = null;
+
+        // Node class
+        class Node {
+            constructor(name, cpuCapacity, memCapacity, costPerHour) {
+                this.name = name;
+                this.cpuCapacity = cpuCapacity;
+                this.memCapacity = memCapacity;
+                this.costPerHour = costPerHour;
+                this.cpuUsed = 0;
+                this.memUsed = 0;
+                this.pods = [];
+            }
+            
+            canFit(pod) {
+                return (this.cpuUsed + pod.cpuRequest <= this.cpuCapacity) &&
+                       (this.memUsed + pod.memRequest <= this.memCapacity);
+            }
+            
+            addPod(pod) {
+                if (this.canFit(pod)) {
+                    this.pods.push(pod);
+                    this.cpuUsed += pod.cpuRequest;
+                    this.memUsed += pod.memRequest;
+                    return true;
+                }
+                return false;
+            }
+            
+            removePod(pod) {
+                const index = this.pods.indexOf(pod);
+                if (index > -1) {
+                    this.pods.splice(index, 1);
+                    this.cpuUsed -= pod.cpuRequest;
+                    this.memUsed -= pod.memRequest;
+                }
+            }
+            
+            getCPUUtilization() {
+                return this.cpuCapacity > 0 ? (this.cpuUsed / this.cpuCapacity) * 100 : 0;
+            }
+            
+            getMemUtilization() {
+                return this.memCapacity > 0 ? (this.memUsed / this.memCapacity) * 100 : 0;
+            }
+        }
+
+        // Pod class
+        class Pod {
+            constructor(name, cpuRequest, memRequest, replicaSet = 'default', maxUnavailable = 1) {
+                this.name = name;
+                this.cpuRequest = cpuRequest;
+                this.memRequest = memRequest;
+                this.replicaSet = replicaSet;
+                this.maxUnavailable = maxUnavailable;
+            }
+        }
+
+        // Scenarios
+        function setupScenario(size) {
+            nodes = [];
+            pods = [];
+            originalAssignment = {};
+            currentAssignment = {};
+            
+            if (size === 'small') {
+                // Small cluster: 3 nodes, 6 pods
+                nodes = [
+                    new Node('node-1', 4000, 8e9, 1.0),
+                    new Node('node-2', 4000, 8e9, 2.0),
+                    new Node('node-3', 8000, 16e9, 3.0)
+                ];
+                
+                pods = [
+                    new Pod('web-1', 1000, 2e9, 'web', 1),
+                    new Pod('web-2', 1000, 2e9, 'web', 1),
+                    new Pod('api-1', 2000, 4e9, 'api', 0),
+                    new Pod('api-2', 2000, 4e9, 'api', 0),
+                    new Pod('db-1', 1000, 6e9, 'db', 0),
+                    new Pod('cache-1', 500, 1e9, 'cache', 2)
+                ];
+                
+                // Initial assignment
+                originalAssignment = {
+                    'web-1': 0, 'web-2': 0,
+                    'api-1': 1, 'api-2': 1,
+                    'db-1': 2, 'cache-1': 2
+                };
+                
+            } else if (size === 'medium') {
+                // Medium cluster: 5 nodes, 15 pods
+                nodes = [
+                    new Node('prod-1', 8000, 16e9, 2.0),
+                    new Node('prod-2', 8000, 16e9, 2.0),
+                    new Node('dev-1', 4000, 8e9, 0.5),
+                    new Node('dev-2', 4000, 8e9, 0.5),
+                    new Node('gpu-1', 16000, 32e9, 5.0)
+                ];
+                
+                // Generate pods
+                for (let i = 0; i < 6; i++) {
+                    pods.push(new Pod(`web-${i+1}`, 500, 1e9, 'web', 2));
+                }
+                for (let i = 0; i < 4; i++) {
+                    pods.push(new Pod(`api-${i+1}`, 1000, 2e9, 'api', 1));
+                }
+                for (let i = 0; i < 3; i++) {
+                    pods.push(new Pod(`worker-${i+1}`, 2000, 4e9, 'worker', 2));
+                }
+                pods.push(new Pod('db-primary', 4000, 16e9, 'db', 0));
+                pods.push(new Pod('db-replica', 4000, 16e9, 'db', 0));
+                
+                // Spread assignment
+                pods.forEach((pod, i) => {
+                    originalAssignment[pod.name] = i % nodes.length;
+                });
+                
+            } else {
+                // Large cluster
+                nodes = [
+                    new Node('prod-1', 16000, 32e9, 3.0),
+                    new Node('prod-2', 16000, 32e9, 3.0),
+                    new Node('prod-3', 16000, 32e9, 3.0),
+                    new Node('spot-1', 8000, 16e9, 0.8),
+                    new Node('spot-2', 8000, 16e9, 0.8),
+                    new Node('spot-3', 8000, 16e9, 0.8),
+                    new Node('expensive-1', 32000, 64e9, 8.0)
+                ];
+                
+                // Generate many pods
+                for (let i = 0; i < 20; i++) {
+                    const size = Math.random() > 0.7 ? 'large' : 'small';
+                    const cpu = size === 'large' ? 2000 : 500;
+                    const mem = size === 'large' ? 4e9 : 1e9;
+                    pods.push(new Pod(`pod-${i+1}`, cpu, mem, `app-${Math.floor(i/3)}`, 1));
+                }
+                
+                // Random initial assignment
+                pods.forEach(pod => {
+                    originalAssignment[pod.name] = Math.floor(Math.random() * (nodes.length - 1));
+                });
+            }
+            
+            // Apply initial assignment
+            Object.assign(currentAssignment, originalAssignment);
+            applyAssignment();
+            renderCluster();
+            updateCalculations();
+        }
+
+        // Apply current assignment to nodes
+        function applyAssignment() {
+            // Clear all nodes
+            nodes.forEach(node => {
+                node.pods = [];
+                node.cpuUsed = 0;
+                node.memUsed = 0;
+            });
+            
+            // Assign pods
+            Object.entries(currentAssignment).forEach(([podName, nodeIndex]) => {
+                const pod = pods.find(p => p.name === podName);
+                if (pod && nodeIndex >= 0 && nodeIndex < nodes.length) {
+                    nodes[nodeIndex].addPod(pod);
+                }
+            });
+        }
+
+        // Render the cluster view
+        function renderCluster() {
+            // Render nodes
+            const nodesList = document.getElementById('nodes-list');
+            nodesList.innerHTML = '';
+            
+            nodes.forEach((node, index) => {
+                const nodeDiv = document.createElement('div');
+                nodeDiv.className = 'node-item' + (selectedNode === index ? ' selected' : '');
+                nodeDiv.innerHTML = `
+                    <h4>${node.name}</h4>
+                    <div class="node-stats">
+                        Cost: $${node.costPerHour}/hr<br>
+                        CPU: ${node.cpuUsed}/${node.cpuCapacity} (${node.getCPUUtilization().toFixed(1)}%)<br>
+                        Mem: ${(node.memUsed/1e9).toFixed(1)}/${(node.memCapacity/1e9).toFixed(1)}GB (${node.getMemUtilization().toFixed(1)}%)
+                    </div>
+                    <div class="utilization-bar">
+                        <div class="utilization-fill ${node.getCPUUtilization() > 80 ? 'danger' : node.getCPUUtilization() > 60 ? 'warning' : ''}" 
+                             style="width: ${node.getCPUUtilization()}%"></div>
+                    </div>
+                    <div class="node-pods" id="node-${index}-pods" ondrop="dropPod(event, ${index})" ondragover="allowDrop(event)"></div>
+                `;
+                nodeDiv.onclick = () => selectNode(index);
+                nodesList.appendChild(nodeDiv);
+                
+                // Render pods in this node
+                const nodePods = document.getElementById(`node-${index}-pods`);
+                node.pods.forEach(pod => {
+                    const podDiv = createPodElement(pod);
+                    nodePods.appendChild(podDiv);
+                });
+            });
+            
+            // Render unassigned pods
+            const unassignedDiv = document.getElementById('unassigned-pods');
+            unassignedDiv.innerHTML = '';
+            unassignedDiv.ondrop = (e) => dropPod(e, -1);
+            unassignedDiv.ondragover = allowDrop;
+            
+            pods.forEach(pod => {
+                if (currentAssignment[pod.name] === undefined || currentAssignment[pod.name] < 0) {
+                    const podDiv = createPodElement(pod);
+                    unassignedDiv.appendChild(podDiv);
+                }
+            });
+        }
+
+        // Create pod element
+        function createPodElement(pod) {
+            const div = document.createElement('div');
+            div.className = 'pod-item';
+            div.draggable = true;
+            div.innerHTML = `
+                <div>${pod.name}</div>
+                <div class="pod-stats">CPU: ${pod.cpuRequest}<br>Mem: ${(pod.memRequest/1e9).toFixed(1)}GB</div>
+            `;
+            div.ondragstart = (e) => dragPod(e, pod.name);
+            return div;
+        }
+
+        // Drag and drop handlers
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function dragPod(ev, podName) {
+            ev.dataTransfer.setData("podName", podName);
+            ev.target.classList.add('dragging');
+        }
+
+        function dropPod(ev, nodeIndex) {
+            ev.preventDefault();
+            const podName = ev.dataTransfer.getData("podName");
+            const pod = pods.find(p => p.name === podName);
+            
+            // Remove from current node
+            const currentNodeIndex = currentAssignment[podName];
+            if (currentNodeIndex !== undefined && currentNodeIndex >= 0) {
+                nodes[currentNodeIndex].removePod(pod);
+            }
+            
+            // Add to new node
+            if (nodeIndex >= 0) {
+                if (nodes[nodeIndex].canFit(pod)) {
+                    nodes[nodeIndex].addPod(pod);
+                    currentAssignment[podName] = nodeIndex;
+                } else {
+                    alert(`Pod ${podName} doesn't fit on ${nodes[nodeIndex].name}`);
+                    if (currentNodeIndex >= 0) {
+                        nodes[currentNodeIndex].addPod(pod);
+                    }
+                }
+            } else {
+                delete currentAssignment[podName];
+            }
+            
+            renderCluster();
+            updateCalculations();
+            
+            // Remove dragging class
+            document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+        }
+
+        function selectNode(index) {
+            selectedNode = selectedNode === index ? null : index;
+            renderCluster();
+        }
+
+        // Assignment strategies
+        function randomAssignment() {
+            pods.forEach(pod => {
+                let assigned = false;
+                let attempts = 0;
+                while (!assigned && attempts < 10) {
+                    const nodeIndex = Math.floor(Math.random() * nodes.length);
+                    if (nodes[nodeIndex].canFit(pod)) {
+                        currentAssignment[pod.name] = nodeIndex;
+                        assigned = true;
+                    }
+                    attempts++;
+                }
+                if (!assigned) {
+                    delete currentAssignment[pod.name];
+                }
+            });
+            applyAssignment();
+            renderCluster();
+            updateCalculations();
+        }
+
+        function optimalAssignment() {
+            // Simple cost-optimal assignment using best-fit decreasing
+            const sortedPods = [...pods].sort((a, b) => 
+                (b.cpuRequest + b.memRequest) - (a.cpuRequest + a.memRequest)
+            );
+            
+            const sortedNodes = [...nodes].map((n, i) => ({node: n, index: i}))
+                .sort((a, b) => a.node.costPerHour - b.node.costPerHour);
+            
+            // Clear assignment
+            currentAssignment = {};
+            
+            // Assign pods to cheapest nodes that fit
+            sortedPods.forEach(pod => {
+                for (let {node, index} of sortedNodes) {
+                    if (node.canFit(pod)) {
+                        currentAssignment[pod.name] = index;
+                        node.addPod(pod);
+                        break;
+                    }
+                }
+            });
+            
+            applyAssignment();
+            renderCluster();
+            updateCalculations();
+        }
+
+        // Objective calculations with breakdowns
+        function calculateDisruption() {
+            const totalPods = pods.length;
+            let podsMoved = 0;
+            
+            // Count moved pods
+            Object.entries(currentAssignment).forEach(([podName, nodeIndex]) => {
+                if (originalAssignment[podName] !== nodeIndex) {
+                    podsMoved++;
+                }
+            });
+            
+            const avgColdStart = parseFloat(document.getElementById('avgColdStart').value);
+            const timeSlots = parseFloat(document.getElementById('timeSlots').value);
+            const wMove = parseFloat(document.getElementById('wMove').value);
+            const wCold = parseFloat(document.getElementById('wCold').value);
+            const wTime = parseFloat(document.getElementById('wTime').value);
+
+            // Calculate components
+            const movementDisruption = totalPods > 0 ? podsMoved / totalPods : 0;
+            const coldStartDisruption = avgColdStart / 1.0;
+            const timeSlotsDisruption = timeSlots / 10.0;
+
+            // Combined weighted disruption
+            const disruption = wMove * movementDisruption + 
+                             wCold * coldStartDisruption + 
+                             wTime * timeSlotsDisruption;
+
+            // Update breakdown
+            const breakdown = document.getElementById('disruption-breakdown');
+            breakdown.innerHTML = `
+                <strong>Calculation:</strong><br>
+                <span class="formula">D = w_m × (pods_moved/total_pods) + w_c × (cold_start/1min) + w_t × (time_slots/10)</span><br><br>
+                <strong>Values:</strong><br>
+                • Pods moved: ${podsMoved}/${totalPods} = ${movementDisruption.toFixed(3)}<br>
+                • Cold start: ${avgColdStart}min / 1min = ${coldStartDisruption.toFixed(3)}<br>
+                • Time slots: ${timeSlots} / 10 = ${timeSlotsDisruption.toFixed(3)}<br><br>
+                <strong>Weighted sum:</strong><br>
+                = ${wMove} × ${movementDisruption.toFixed(3)} + ${wCold} × ${coldStartDisruption.toFixed(3)} + ${wTime} × ${timeSlotsDisruption.toFixed(3)}<br>
+                = <strong>${disruption.toFixed(3)}</strong>
+            `;
+
+            return Math.min(1.0, disruption);
+        }
+
+        function calculateCost() {
+            // Calculate actual cost
+            const activeNodes = nodes.filter(node => node.pods.length > 0);
+            const currentCost = activeNodes.reduce((sum, node) => sum + node.costPerHour, 0);
+            
+            const minCost = parseFloat(document.getElementById('minCost').value);
+            const maxCost = parseFloat(document.getElementById('maxCost').value);
+
+            const normalized = maxCost > minCost ? (currentCost - minCost) / (maxCost - minCost) : 0;
+            
+            // Update breakdown
+            const breakdown = document.getElementById('cost-breakdown');
+            breakdown.innerHTML = `
+                <strong>Calculation:</strong><br>
+                <span class="formula">C = (current_cost - min_cost) / (max_cost - min_cost)</span><br><br>
+                <strong>Active nodes:</strong><br>
+                ${activeNodes.map(n => `• ${n.name}: $${n.costPerHour}/hr`).join('<br>')}<br>
+                <strong>Total: $${currentCost.toFixed(2)}/hr</strong><br><br>
+                <strong>Normalization:</strong><br>
+                = (${currentCost.toFixed(2)} - ${minCost}) / (${maxCost} - ${minCost})<br>
+                = <strong>${normalized.toFixed(3)}</strong>
+            `;
+            
+            return normalized;
+        }
+
+        function calculateBalance() {
+            // Calculate standard deviations
+            const cpuUtils = nodes.map(n => n.getCPUUtilization());
+            const memUtils = nodes.map(n => n.getMemUtilization());
+            
+            const cpuMean = cpuUtils.reduce((a, b) => a + b, 0) / cpuUtils.length;
+            const memMean = memUtils.reduce((a, b) => a + b, 0) / memUtils.length;
+            
+            const cpuStdDev = Math.sqrt(cpuUtils.reduce((sum, u) => sum + Math.pow(u - cpuMean, 2), 0) / cpuUtils.length);
+            const memStdDev = Math.sqrt(memUtils.reduce((sum, u) => sum + Math.pow(u - memMean, 2), 0) / memUtils.length);
+            
+            const wCPU = parseFloat(document.getElementById('wCPU').value);
+            const wMem = parseFloat(document.getElementById('wMem').value);
+
+            const maxStdDev = 50.0;
+            const cpuNorm = cpuStdDev / maxStdDev;
+            const memNorm = memStdDev / maxStdDev;
+
+            const balance = wCPU * cpuNorm + wMem * memNorm;
+            
+            // Update breakdown
+            const breakdown = document.getElementById('balance-breakdown');
+            breakdown.innerHTML = `
+                <strong>Calculation:</strong><br>
+                <span class="formula">B = w_cpu × (σ_cpu/50) + w_mem × (σ_mem/50)</span><br><br>
+                <strong>Node utilizations:</strong><br>
+                ${nodes.map(n => `• ${n.name}: CPU ${n.getCPUUtilization().toFixed(1)}%, Mem ${n.getMemUtilization().toFixed(1)}%`).join('<br>')}<br><br>
+                <strong>Statistics:</strong><br>
+                • CPU mean: ${cpuMean.toFixed(1)}%, σ = ${cpuStdDev.toFixed(1)}%<br>
+                • Mem mean: ${memMean.toFixed(1)}%, σ = ${memStdDev.toFixed(1)}%<br><br>
+                <strong>Weighted sum:</strong><br>
+                = ${wCPU} × ${cpuNorm.toFixed(3)} + ${wMem} × ${memNorm.toFixed(3)}<br>
+                = <strong>${balance.toFixed(3)}</strong>
+            `;
+            
+            return balance;
+        }
+
+        // Update all calculations
+        function updateCalculations() {
+            const disruption = calculateDisruption();
+            const cost = calculateCost();
+            const balance = calculateBalance();
+
+            document.getElementById('disruption-result').textContent = disruption.toFixed(3);
+            document.getElementById('cost-result').textContent = cost.toFixed(3);
+            document.getElementById('balance-result').textContent = balance.toFixed(3);
+            
+            // Show feasible movements
+            showFeasibleMovements();
+        }
+
+        // Show feasible movements respecting PDB constraints
+        function showFeasibleMovements() {
+            const pdbDiv = document.getElementById('pdb-analysis');
+            let html = '<h4>Pod Disruption Budget Analysis</h4>';
+            
+            // Group pods by replica set
+            const replicaSets = {};
+            pods.forEach((pod, idx) => {
+                if (!replicaSets[pod.replicaSet]) {
+                    replicaSets[pod.replicaSet] = {
+                        pods: [],
+                        maxUnavailable: pod.maxUnavailable,
+                        totalCount: 0,
+                        movedCount: 0,
+                        feasibleMoves: []
+                    };
+                }
+                const rs = replicaSets[pod.replicaSet];
+                rs.pods.push({pod, idx});
+                rs.totalCount++;
+                
+                // Check if this pod needs to move
+                if (currentAssignment[pod.name] !== originalAssignment[pod.name]) {
+                    rs.movedCount++;
+                    rs.feasibleMoves.push(pod.name);
+                }
+            });
+            
+            // Analyze each replica set
+            html += '<table style="width: 100%; border-collapse: collapse; margin-top: 10px;">';
+            html += '<tr style="background: #e0e0e0;">';
+            html += '<th style="padding: 8px; text-align: left;">Replica Set</th>';
+            html += '<th style="padding: 8px;">Total Pods</th>';
+            html += '<th style="padding: 8px;">Max Unavailable</th>';
+            html += '<th style="padding: 8px;">Want to Move</th>';
+            html += '<th style="padding: 8px;">Can Move Now</th>';
+            html += '<th style="padding: 8px;">Iterations Needed</th>';
+            html += '</tr>';
+            
+            let totalFeasible = 0;
+            let totalToMove = 0;
+            
+            Object.entries(replicaSets).forEach(([rsName, rs]) => {
+                const canMoveNow = Math.min(rs.movedCount, rs.maxUnavailable || 1);
+                const iterationsNeeded = rs.maxUnavailable > 0 ? Math.ceil(rs.movedCount / rs.maxUnavailable) : 0;
+                
+                totalFeasible += canMoveNow;
+                totalToMove += rs.movedCount;
+                
+                const rowStyle = rs.maxUnavailable === 0 ? 'background: #ffebee;' : '';
+                html += `<tr style="${rowStyle}">`;
+                html += `<td style="padding: 8px; border-top: 1px solid #ddd;"><strong>${rsName}</strong></td>`;
+                html += `<td style="padding: 8px; text-align: center; border-top: 1px solid #ddd;">${rs.totalCount}</td>`;
+                html += `<td style="padding: 8px; text-align: center; border-top: 1px solid #ddd;">${rs.maxUnavailable}</td>`;
+                html += `<td style="padding: 8px; text-align: center; border-top: 1px solid #ddd;">${rs.movedCount}</td>`;
+                html += `<td style="padding: 8px; text-align: center; border-top: 1px solid #ddd; font-weight: bold; color: ${canMoveNow > 0 ? '#4CAF50' : '#F44336'};">${canMoveNow}</td>`;
+                html += `<td style="padding: 8px; text-align: center; border-top: 1px solid #ddd;">${iterationsNeeded || 'N/A'}</td>`;
+                html += '</tr>';
+                
+                // Show which pods can move
+                if (canMoveNow > 0 && rs.feasibleMoves.length > 0) {
+                    const feasiblePods = rs.feasibleMoves.slice(0, canMoveNow);
+                    html += `<tr><td colspan="6" style="padding: 4px 20px; font-size: 12px; color: #666;">`;
+                    html += `Can move: ${feasiblePods.join(', ')}`;
+                    html += `</td></tr>`;
+                }
+            });
+            
+            html += '</table>';
+            
+            // Summary
+            html += '<div style="margin-top: 20px; padding: 10px; background: #e3f2fd; border-radius: 4px;">';
+            html += `<strong>Summary:</strong><br>`;
+            html += `• Total pods to move: ${totalToMove}<br>`;
+            html += `• Can move in first iteration: ${totalFeasible} (${totalToMove > 0 ? (totalFeasible/totalToMove*100).toFixed(1) : 0}%)<br>`;
+            
+            if (totalFeasible > 0) {
+                // Calculate intermediate objectives
+                const intermediateSol = createIntermediateSolution();
+                const intCost = calculateCostForSolution(intermediateSol);
+                const intDisruption = calculateDisruptionForSolution(intermediateSol);
+                const intBalance = calculateBalanceForSolution(intermediateSol);
+                
+                html += `<br><strong>Intermediate State Objectives:</strong><br>`;
+                html += `• Cost: ${intCost.toFixed(3)} (current: ${calculateCost().toFixed(3)})<br>`;
+                html += `• Disruption: ${intDisruption.toFixed(3)} (target: ${calculateDisruption().toFixed(3)})<br>`;
+                html += `• Balance: ${intBalance.toFixed(3)} (target: ${calculateBalance().toFixed(3)})<br>`;
+            }
+            
+            html += '</div>';
+            
+            pdbDiv.innerHTML = html;
+        }
+        
+        // Helper to create intermediate solution (only feasible moves)
+        function createIntermediateSolution() {
+            const intermediateSol = {};
+            
+            // Start from original state
+            Object.assign(intermediateSol, originalAssignment);
+            
+            // Group by replica set and apply only feasible moves
+            const replicaSets = {};
+            pods.forEach((pod) => {
+                if (!replicaSets[pod.replicaSet]) {
+                    replicaSets[pod.replicaSet] = {
+                        pods: [],
+                        maxUnavailable: pod.maxUnavailable,
+                        moved: 0
+                    };
+                }
+                replicaSets[pod.replicaSet].pods.push(pod);
+            });
+            
+            // Apply moves respecting PDB
+            Object.values(replicaSets).forEach(rs => {
+                rs.pods.forEach(pod => {
+                    if (currentAssignment[pod.name] !== originalAssignment[pod.name] && 
+                        rs.moved < rs.maxUnavailable) {
+                        intermediateSol[pod.name] = currentAssignment[pod.name];
+                        rs.moved++;
+                    }
+                });
+            });
+            
+            return intermediateSol;
+        }
+        
+        // Calculate objectives for a specific solution
+        function calculateCostForSolution(assignment) {
+            const activeNodes = new Set();
+            Object.values(assignment).forEach(nodeIdx => {
+                if (nodeIdx >= 0) activeNodes.add(nodeIdx);
+            });
+            
+            let totalCost = 0;
+            activeNodes.forEach(idx => {
+                totalCost += nodes[idx].costPerHour;
+            });
+            
+            const minCost = parseFloat(document.getElementById('minCost').value);
+            const maxCost = parseFloat(document.getElementById('maxCost').value);
+            
+            return maxCost > minCost ? (totalCost - minCost) / (maxCost - minCost) : 0;
+        }
+        
+        function calculateDisruptionForSolution(assignment) {
+            let moved = 0;
+            Object.entries(assignment).forEach(([podName, nodeIdx]) => {
+                if (originalAssignment[podName] !== nodeIdx) moved++;
+            });
+            
+            const avgColdStart = parseFloat(document.getElementById('avgColdStart').value);
+            const timeSlots = parseFloat(document.getElementById('timeSlots').value);
+            const wMove = parseFloat(document.getElementById('wMove').value);
+            const wCold = parseFloat(document.getElementById('wCold').value);
+            const wTime = parseFloat(document.getElementById('wTime').value);
+            
+            const movementDisruption = pods.length > 0 ? moved / pods.length : 0;
+            const coldStartDisruption = avgColdStart / 1.0;
+            const timeSlotsDisruption = timeSlots / 10.0;
+            
+            return wMove * movementDisruption + wCold * coldStartDisruption + wTime * timeSlotsDisruption;
+        }
+        
+        function calculateBalanceForSolution(assignment) {
+            // Recalculate node usage for this assignment
+            const tempNodes = nodes.map(n => ({
+                ...n,
+                cpuUsed: 0,
+                memUsed: 0,
+                pods: []
+            }));
+            
+            pods.forEach(pod => {
+                const nodeIdx = assignment[pod.name];
+                if (nodeIdx >= 0 && nodeIdx < tempNodes.length) {
+                    tempNodes[nodeIdx].cpuUsed += pod.cpuRequest;
+                    tempNodes[nodeIdx].memUsed += pod.memRequest;
+                }
+            });
+            
+            const cpuUtils = tempNodes.map(n => n.cpuCapacity > 0 ? (n.cpuUsed / n.cpuCapacity) * 100 : 0);
+            const memUtils = tempNodes.map(n => n.memCapacity > 0 ? (n.memUsed / n.memCapacity) * 100 : 0);
+            
+            const cpuMean = cpuUtils.reduce((a, b) => a + b, 0) / cpuUtils.length;
+            const memMean = memUtils.reduce((a, b) => a + b, 0) / memUtils.length;
+            
+            const cpuStdDev = Math.sqrt(cpuUtils.reduce((sum, u) => sum + Math.pow(u - cpuMean, 2), 0) / cpuUtils.length);
+            const memStdDev = Math.sqrt(memUtils.reduce((sum, u) => sum + Math.pow(u - memMean, 2), 0) / memUtils.length);
+            
+            const wCPU = parseFloat(document.getElementById('wCPU').value);
+            const wMem = parseFloat(document.getElementById('wMem').value);
+            
+            const maxStdDev = 50.0;
+            return wCPU * (cpuStdDev / maxStdDev) + wMem * (memStdDev / maxStdDev);
+        }
+        
+        // Setup sliders
+        function setupSlider(id) {
+            const slider = document.getElementById(id);
+            const valueSpan = document.getElementById(id + '-value');
+            
+            slider.addEventListener('input', function() {
+                valueSpan.textContent = parseFloat(this.value).toFixed(this.step.includes('.') ? this.step.split('.')[1].length : 0);
+                updateCalculations();
+            });
+        }
+
+        // Initialize
+        const sliderIds = ['avgColdStart', 'timeSlots', 'wMove', 'wCold', 'wTime',
+                          'minCost', 'maxCost', 'wCPU', 'wMem'];
+        sliderIds.forEach(setupSlider);
+
+        // Start with small scenario
+        setupScenario('small');
+    </script>
+</body>
+</html>

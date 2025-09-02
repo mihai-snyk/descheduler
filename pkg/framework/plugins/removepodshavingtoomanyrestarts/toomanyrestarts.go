@@ -71,6 +71,7 @@ func New(ctx context.Context, args runtime.Object, handle frameworktypes.Handle)
 	}
 
 	podFilter = podutil.WrapFilterFuncs(podFilter, func(pod *v1.Pod) bool {
+		logger.V(4).Info("HERE WE ARE")
 		if err := validateCanEvict(pod, tooManyRestartsArgs); err != nil {
 			logger.V(4).Info(fmt.Sprintf("ignoring pod for eviction due to: %s", err.Error()), "pod", klog.KObj(pod))
 			return false
@@ -117,9 +118,11 @@ func (d *RemovePodsHavingTooManyRestarts) Name() string {
 // Deschedule extension point implementation for the plugin
 func (d *RemovePodsHavingTooManyRestarts) Deschedule(ctx context.Context, nodes []*v1.Node) *frameworktypes.Status {
 	logger := klog.FromContext(klog.NewContext(ctx, d.logger)).WithValues("ExtensionPoint", frameworktypes.DescheduleExtensionPoint)
+
 	for _, node := range nodes {
 		logger.V(2).Info("Processing node", "node", klog.KObj(node))
 		pods, err := podutil.ListAllPodsOnANode(node.Name, d.handle.GetPodsAssignedToNodeFunc(), d.podFilter)
+		logger.V(2).Info("The pods on this node", "pods", pods)
 		if err != nil {
 			// no pods evicted as error encountered retrieving evictable Pods
 			return &frameworktypes.Status{

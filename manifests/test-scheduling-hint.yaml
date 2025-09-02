@@ -1,0 +1,18 @@
+apiVersion: descheduler.io/v1alpha1
+kind: SchedulingHint
+metadata:
+  name: test-hint
+spec:
+  hints:
+  - podName: fake-pod-5b8665f758-xnpl5
+    podNamespace: default
+    targetNode: efficient-2
+    priority: 100
+    reason: "Better load distribution"
+  - podName: fake-pod-5b8665f758-mdhl2
+    podNamespace: default
+    targetNode: efficient-3
+    priority: 90
+    reason: "Carbon optimization"
+  expirationTime: "2024-12-31T00:00:00Z"
+  deschedulerGeneration: 1
