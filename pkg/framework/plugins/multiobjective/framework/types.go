@@ -3,8 +3,8 @@ package framework
 // Default constants for the plugin
 const (
 	// Algorithm defaults
-	DefaultPopulationSize       = 300
-	DefaultMaxGenerations       = 500
+	DefaultPopulationSize       = 400
+	DefaultMaxGenerations       = 1000
 	DefaultCrossoverProbability = 0.90
 	DefaultMutationProbability  = 0.30
 
