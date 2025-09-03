@@ -3,19 +3,13 @@ kind: "DeschedulerPolicy"
 profiles:
   - name: MultiObjectiveProfile
     pluginConfig:
-    - name: "DefaultEvictor"
-      args:
-        ignorePvcPods: false
-        evictLocalStoragePods: true
     - name: "MultiObjective"
       args:
-        maxEvictionsPerCycle: 5
-        populationSize: 50
-        generations: 100
+        weights:
+          cost: 0.30
+          disruption: 0.50
+          balance: 0.20
     plugins:
-      filter:
-        enabled:
-          - "DefaultEvictor"
       balance:
         enabled:
           - "MultiObjective"  

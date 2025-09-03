@@ -3,22 +3,9 @@ package balance
 import (
 	"math"
 
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
-
-// ResourceInfo represents resource capacity and allocation for a node
-type ResourceInfo struct {
-	CPUCapacity  float64 // in millicores
-	CPUAllocated float64 // in millicores
-	MemCapacity  float64 // in bytes
-	MemAllocated float64 // in bytes
-}
-
-// PodResources represents the resource requirements of a pod
-type PodResources struct {
-	CPURequest float64 // in millicores
-	MemRequest float64 // in bytes
-}
 
 // BalanceConfig contains weights and normalization parameters
 type BalanceConfig struct {
@@ -60,19 +47,19 @@ type NodeUtilization struct {
 }
 
 // BalanceObjective calculates the load balance cost using standard deviation
-func BalanceObjective(assignment []int, pods []PodResources, nodes []ResourceInfo, config BalanceConfig) float64 {
+func BalanceObjective(assignment []int, pods []framework.PodInfo, nodes []framework.NodeInfo, config BalanceConfig) float64 {
 	result := calculateBalance(assignment, pods, nodes, config)
 	return result.TotalCost
 }
 
 // BalanceObjectiveWithDetails returns both cost and detailed metrics
-func BalanceObjectiveWithDetails(assignment []int, pods []PodResources, nodes []ResourceInfo, config BalanceConfig) (float64, BalanceResult) {
+func BalanceObjectiveWithDetails(assignment []int, pods []framework.PodInfo, nodes []framework.NodeInfo, config BalanceConfig) (float64, BalanceResult) {
 	result := calculateBalance(assignment, pods, nodes, config)
 	return result.TotalCost, result
 }
 
 // BalanceObjectiveFunc returns a function compatible with the optimization framework
-func BalanceObjectiveFunc(pods []PodResources, nodes []ResourceInfo, config BalanceConfig) func(framework.Solution) float64 {
+func BalanceObjectiveFunc(pods []framework.PodInfo, nodes []framework.NodeInfo, config BalanceConfig) func(framework.Solution) float64 {
 	return func(sol framework.Solution) float64 {
 		intSol, ok := sol.(*framework.IntegerSolution)
 		if !ok {
@@ -83,7 +70,7 @@ func BalanceObjectiveFunc(pods []PodResources, nodes []ResourceInfo, config Bala
 }
 
 // BalanceObjectiveFuncWithDetails returns a details function for the framework
-func BalanceObjectiveFuncWithDetails(pods []PodResources, nodes []ResourceInfo, config BalanceConfig) func(framework.Solution) interface{} {
+func BalanceObjectiveFuncWithDetails(pods []framework.PodInfo, nodes []framework.NodeInfo, config BalanceConfig) func(framework.Solution) interface{} {
 	return func(sol framework.Solution) interface{} {
 		intSol, ok := sol.(*framework.IntegerSolution)
 		if !ok {
@@ -95,29 +82,33 @@ func BalanceObjectiveFuncWithDetails(pods []PodResources, nodes []ResourceInfo, 
 }
 
 // calculateBalance computes the load balance metrics
-func calculateBalance(assignment []int, pods []PodResources, nodes []ResourceInfo, config BalanceConfig) BalanceResult {
+func calculateBalance(assignment []int, pods []framework.PodInfo, nodes []framework.NodeInfo, config BalanceConfig) BalanceResult {
 	numNodes := len(nodes)
 	if numNodes == 0 {
 		return BalanceResult{TotalCost: 0}
 	}
 
 	// Calculate allocated resources per node based on assignment
-	nodeAllocations := make([]ResourceInfo, numNodes)
+	type resourceInfo struct {
+		cpuCapacity  float64
+		memCapacity  float64
+		cpuAllocated float64
+		memAllocated float64
+	}
+
+	nodeAllocations := make([]resourceInfo, numNodes)
 	for i := range nodeAllocations {
-		nodeAllocations[i] = ResourceInfo{
-			CPUCapacity: nodes[i].CPUCapacity,
-			MemCapacity: nodes[i].MemCapacity,
-			// Start with existing allocations (pods not in our assignment)
-			CPUAllocated: nodes[i].CPUAllocated,
-			MemAllocated: nodes[i].MemAllocated,
+		nodeAllocations[i] = resourceInfo{
+			cpuCapacity: nodes[i].CPUCapacity,
+			memCapacity: nodes[i].MemCapacity,
 		}
 	}
 
 	// Add pod resources to assigned nodes
 	for podIdx, nodeIdx := range assignment {
 		if nodeIdx >= 0 && nodeIdx < numNodes {
-			nodeAllocations[nodeIdx].CPUAllocated += pods[podIdx].CPURequest
-			nodeAllocations[nodeIdx].MemAllocated += pods[podIdx].MemRequest
+			nodeAllocations[nodeIdx].cpuAllocated += pods[podIdx].CPURequest
+			nodeAllocations[nodeIdx].memAllocated += pods[podIdx].MemRequest
 		}
 	}
 
@@ -128,13 +119,13 @@ func calculateBalance(assignment []int, pods []PodResources, nodes []ResourceInf
 
 	for i, node := range nodeAllocations {
 		cpuUtil := 0.0
-		if node.CPUCapacity > 0 {
-			cpuUtil = (node.CPUAllocated / node.CPUCapacity) * 100
+		if node.cpuCapacity > 0 {
+			cpuUtil = (node.cpuAllocated / node.cpuCapacity) * 100
 		}
 
 		memUtil := 0.0
-		if node.MemCapacity > 0 {
-			memUtil = (node.MemAllocated / node.MemCapacity) * 100
+		if node.memCapacity > 0 {
+			memUtil = (node.memAllocated / node.memCapacity) * 100
 		}
 
 		utilizations[i] = NodeUtilization{
@@ -145,6 +136,8 @@ func calculateBalance(assignment []int, pods []PodResources, nodes []ResourceInf
 
 		cpuUtils[i] = cpuUtil
 		memUtils[i] = memUtil
+
+		klog.V(4).Infof("Node %d utilization: CPU=%.2f%%, Mem=%.2f%%", i, cpuUtil, memUtil)
 	}
 
 	// Calculate standard deviations
@@ -159,6 +152,15 @@ func calculateBalance(assignment []int, pods []PodResources, nodes []ResourceInf
 	weightedCPU := normalizedCPU * config.CPUWeight
 	weightedMem := normalizedMem * config.MemWeight
 
+	totalCost := weightedCPU + weightedMem
+
+	// Log balance calculation details
+	klog.V(3).Infof("Balance calculation: CPU utils=%v, Mem utils=%v", cpuUtils, memUtils)
+	klog.V(3).Infof("Balance StdDev: CPU=%.4f, Mem=%.4f", cpuStdDev, memStdDev)
+	klog.V(3).Infof("Balance Normalized: CPU=%.6f, Mem=%.6f", normalizedCPU, normalizedMem)
+	klog.V(3).Infof("Balance Weighted: CPU=%.6f, Mem=%.6f, Total=%.6f",
+		weightedCPU, weightedMem, totalCost)
+
 	return BalanceResult{
 		CPUStdDev:           cpuStdDev,
 		MemStdDev:           memStdDev,
@@ -166,7 +168,7 @@ func calculateBalance(assignment []int, pods []PodResources, nodes []ResourceInf
 		NormalizedMemStdDev: normalizedMem,
 		WeightedCPU:         weightedCPU,
 		WeightedMem:         weightedMem,
-		TotalCost:           weightedCPU + weightedMem,
+		TotalCost:           totalCost,
 		NodeUtilizations:    utilizations,
 	}
 }

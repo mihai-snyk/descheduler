@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: fake-pod-pdb
+  namespace: default
+spec:
+  maxUnavailable: 2
+  selector:
+    matchLabels:
+      app: fake-pod

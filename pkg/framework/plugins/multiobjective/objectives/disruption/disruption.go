@@ -6,15 +6,6 @@ import (
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
 
-// PodInfo contains information about a pod relevant for disruption calculation
-type PodInfo struct {
-	Name                   string
-	CurrentNode            int     // Current node assignment
-	ColdStartTime          float64 // Startup probe time (failureThreshold * periodSeconds)
-	ReplicaSetName         string  // For grouping pods by app
-	MaxUnavailableReplicas int     // From PDB
-}
-
 // DisruptionResult contains the breakdown of disruption cost
 type DisruptionResult struct {
 	TotalCost       float64
@@ -43,7 +34,7 @@ type DisruptionConfig struct {
 }
 
 // NewDisruptionConfig creates a DisruptionConfig adapted to the actual cluster
-func NewDisruptionConfig(pods []PodInfo) DisruptionConfig {
+func NewDisruptionConfig(pods []framework.PodInfo) DisruptionConfig {
 	totalPods := len(pods)
 
 	// Movement: exactly the number of pods (moving all = 1.0 impact)
@@ -75,7 +66,7 @@ func NewDisruptionConfig(pods []PodInfo) DisruptionConfig {
 }
 
 // NewDisruptionConfigWithPenalty creates a DisruptionConfig with a specific penalty type
-func NewDisruptionConfigWithPenalty(pods []PodInfo, penaltyType string) DisruptionConfig {
+func NewDisruptionConfigWithPenalty(pods []framework.PodInfo, penaltyType string) DisruptionConfig {
 	config := NewDisruptionConfig(pods)
 	config.MovementPenaltyType = penaltyType
 	// Keep the default lambda from NewDisruptionConfig
@@ -85,7 +76,7 @@ func NewDisruptionConfigWithPenalty(pods []PodInfo, penaltyType string) Disrupti
 // DisruptionObjective creates a normalized objective function that minimizes disruption
 // All components are normalized to [0,1] range before applying weights
 // Total output is in range [0,1] when weights sum to 1.0
-func DisruptionObjective(currentState []int, pods []PodInfo, config DisruptionConfig) framework.ObjectiveFunc {
+func DisruptionObjective(currentState []int, pods []framework.PodInfo, config DisruptionConfig) framework.ObjectiveFunc {
 	return func(sol framework.Solution) float64 {
 		proposed := sol.(*framework.IntegerSolution).Variables
 
@@ -95,7 +86,7 @@ func DisruptionObjective(currentState []int, pods []PodInfo, config DisruptionCo
 }
 
 // DisruptionObjectiveWithDetails returns both the objective function and a details function
-func DisruptionObjectiveWithDetails(currentState []int, pods []PodInfo, config DisruptionConfig) (framework.ObjectiveFunc, func(framework.Solution) DisruptionResult) {
+func DisruptionObjectiveWithDetails(currentState []int, pods []framework.PodInfo, config DisruptionConfig) (framework.ObjectiveFunc, func(framework.Solution) DisruptionResult) {
 	objFunc := DisruptionObjective(currentState, pods, config)
 
 	detailsFunc := func(sol framework.Solution) DisruptionResult {
@@ -107,7 +98,7 @@ func DisruptionObjectiveWithDetails(currentState []int, pods []PodInfo, config D
 }
 
 // calculateDisruption computes the normalized disruption cost with all components
-func calculateDisruption(currentState, proposed []int, pods []PodInfo, config DisruptionConfig) DisruptionResult {
+func calculateDisruption(currentState, proposed []int, pods []framework.PodInfo, config DisruptionConfig) DisruptionResult {
 	result := DisruptionResult{}
 
 	// Track which pods need to move
@@ -151,7 +142,7 @@ func calculateDisruption(currentState, proposed []int, pods []PodInfo, config Di
 
 // calculateReplicaSetWeightedMovement calculates movement disruption normalized per replica set
 // This gives a more accurate measure of disruption impact on individual services
-func calculateReplicaSetWeightedMovement(currentState, proposed []int, pods []PodInfo, config DisruptionConfig) float64 {
+func calculateReplicaSetWeightedMovement(currentState, proposed []int, pods []framework.PodInfo, config DisruptionConfig) float64 {
 	// Group pods by replica set
 	replicaSets := make(map[string]*struct {
 		totalPods int
@@ -222,56 +213,8 @@ func applyPenaltyFunction(ratio float64, penaltyType string, lambda float64) flo
 	}
 }
 
-// calculateMovementPenalty applies different penalty functions for pod movements
-func calculateMovementPenalty(movedPods int, totalPods int, config DisruptionConfig) float64 {
-	if movedPods == 0 {
-		return 0.0
-	}
-
-	ratio := float64(movedPods) / float64(totalPods)
-
-	switch config.MovementPenaltyType {
-	case "linear":
-		// Original linear penalty
-		return ratio
-
-	case "sqrt":
-		// Square root gives diminishing penalty
-		// Moving 1/100 pods = 0.1 penalty instead of 0.01
-		// Moving 4/100 pods = 0.2 penalty instead of 0.04
-		return math.Sqrt(ratio)
-
-	case "log":
-		// Logarithmic is even more forgiving for small moves
-		// log(1 + x) / log(2) to normalize
-		return math.Log(1+ratio) / math.Log(2)
-
-	case "exp":
-		// Exponential decay: 1 - e^(-λx)
-		// Starts gentle, ramps up for many moves
-		return 1 - math.Exp(-config.MovementPenaltyLambda*ratio)
-
-	case "threshold":
-		// Different rates for small vs large movements
-		if movedPods <= 2 {
-			// Very gentle for 1-2 pods
-			return float64(movedPods) * 0.05
-		} else if movedPods <= 5 {
-			// Moderate for 3-5 pods
-			return 0.1 + float64(movedPods-2)*0.1
-		} else {
-			// Steeper penalty for many moves
-			return 0.4 + math.Sqrt(float64(movedPods-5)/float64(totalPods))
-		}
-
-	default:
-		// Fallback to linear
-		return ratio
-	}
-}
-
 // calculateTimeSlots determines how many time slots are needed to respect PDB constraints
-func calculateTimeSlots(movedPods []int, pods []PodInfo) int {
+func calculateTimeSlots(movedPods []int, pods []framework.PodInfo) int {
 	if len(movedPods) == 0 {
 		return 0
 	}
@@ -312,7 +255,7 @@ func calculateTimeSlots(movedPods []int, pods []PodInfo) int {
 
 // calculateWorstCaseTimeSlots estimates expected time slots using weighted average
 // This prevents a single large app from dominating the calculation
-func calculateWorstCaseTimeSlots(pods []PodInfo) int {
+func calculateWorstCaseTimeSlots(pods []framework.PodInfo) int {
 	// Group pods by replica set to understand PDB impact
 	replicaSets := make(map[string]struct {
 		count          int

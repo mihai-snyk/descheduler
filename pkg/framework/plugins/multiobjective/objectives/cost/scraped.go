@@ -1,5 +1,7 @@
 package cost
 
+import "fmt"
+
 // InstancePricing contains real scraped cloud pricing data
 // Prices are in USD per hour
 type InstancePricing struct {
@@ -98,19 +100,19 @@ var AWSPricing = map[string]map[string]InstancePricing{
 }
 
 // GetInstanceCost returns the hourly cost for an AWS instance
-func GetInstanceCost(region, instanceType, lifecycle string) float64 {
+func GetInstanceCost(region, instanceType, lifecycle string) (float64, error) {
 	regionPricing, ok := AWSPricing[region]
 	if !ok {
-		return 0.1 // Region not found - default fallback
+		return 0, fmt.Errorf("pricing data not available for region: %s", region)
 	}
 
 	instance, ok := regionPricing[instanceType]
 	if !ok {
-		return 0.1 // Instance type not found - default fallback
+		return 0, fmt.Errorf("pricing data not available for instance type %s in region %s", instanceType, region)
 	}
 
 	if lifecycle == "spot" {
-		return instance.Spot
+		return instance.Spot, nil
 	}
-	return instance.OnDemand
+	return instance.OnDemand, nil
 }

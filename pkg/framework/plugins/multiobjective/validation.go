@@ -26,16 +26,23 @@ import (
 func ValidateMultiObjectiveArgs(obj runtime.Object) error {
 	args := obj.(*MultiObjectiveArgs)
 
-	if args.MaxEvictionsPerCycle < 0 {
-		return fmt.Errorf("maxEvictionsPerCycle must be non-negative")
-	}
+	// Validate weights if provided
+	if args.Weights != nil {
+		if args.Weights.Cost < 0 || args.Weights.Cost > 1 {
+			return fmt.Errorf("cost weight must be between 0 and 1, got %v", args.Weights.Cost)
+		}
+		if args.Weights.Disruption < 0 || args.Weights.Disruption > 1 {
+			return fmt.Errorf("disruption weight must be between 0 and 1, got %v", args.Weights.Disruption)
+		}
+		if args.Weights.Balance < 0 || args.Weights.Balance > 1 {
+			return fmt.Errorf("balance weight must be between 0 and 1, got %v", args.Weights.Balance)
+		}
 
-	if args.PopulationSize < 1 {
-		return fmt.Errorf("populationSize must be at least 1")
-	}
-
-	if args.Generations < 1 {
-		return fmt.Errorf("generations must be at least 1")
+		// Weights should sum to 1 (with some tolerance for floating point)
+		sum := args.Weights.Cost + args.Weights.Disruption + args.Weights.Balance
+		if sum > 0 && (sum < 0.99 || sum > 1.01) {
+			return fmt.Errorf("weights should sum to 1.0, got %v", sum)
+		}
 	}
 
 	return nil

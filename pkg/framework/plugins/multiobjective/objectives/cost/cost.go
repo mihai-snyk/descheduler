@@ -4,30 +4,18 @@ import (
 	"log"
 	"time"
 
-	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/constraints"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
 
-// NodeInfo contains node metadata needed for cost calculation
-type NodeInfo struct {
-	Name         string
-	Region       string
-	InstanceType string
-	Lifecycle    string // "on-demand" or "spot"
-	CostPerHour  float64
-	CPUCapacity  float64
-	MemCapacity  float64
-}
-
 // CostObjective creates a cost objective function compatible with the framework
 // Uses Deb's normalization: (f - f_min) / (f_max - f_min)
-func CostObjective(pods []constraints.PodInfo, nodes []NodeInfo) framework.ObjectiveFunc {
+func CostObjective(pods []framework.PodInfo, nodes []framework.NodeInfo) framework.ObjectiveFunc {
 	// Pre-compute bounds once - these are constant for the problem instance
 
 	// Calculate max possible cost (all nodes active)
 	maxCost := 0.0
 	for _, node := range nodes {
-		maxCost += node.CostPerHour
+		maxCost += node.HourlyCost
 	}
 
 	// Calculate initial minimum cost estimate using bin packing solver
@@ -59,7 +47,7 @@ func CostObjective(pods []constraints.PodInfo, nodes []NodeInfo) framework.Objec
 		totalCost := 0.0
 		for i, hasPods := range nodeHasPods {
 			if hasPods {
-				totalCost += nodes[i].CostPerHour
+				totalCost += nodes[i].HourlyCost
 			}
 		}
 
@@ -103,42 +91,14 @@ func CostObjective(pods []constraints.PodInfo, nodes []NodeInfo) framework.Objec
 	}
 }
 
-// Helper to create NodeInfo with automatic cost lookup
-func NewNodeInfo(name, region, instanceType, lifecycle string) NodeInfo {
-	cost := GetInstanceCost(region, instanceType, lifecycle)
-	return NodeInfo{
-		Name:         name,
-		Region:       region,
-		InstanceType: instanceType,
-		Lifecycle:    lifecycle,
-		CostPerHour:  cost,
-		CPUCapacity:  0, // Should be set by caller
-		MemCapacity:  0, // Should be set by caller
-	}
-}
-
-// NewNodeInfoWithCapacity creates NodeInfo with capacity information
-func NewNodeInfoWithCapacity(name, region, instanceType, lifecycle string, cpu, mem float64) NodeInfo {
-	cost := GetInstanceCost(region, instanceType, lifecycle)
-	return NodeInfo{
-		Name:         name,
-		Region:       region,
-		InstanceType: instanceType,
-		Lifecycle:    lifecycle,
-		CostPerHour:  cost,
-		CPUCapacity:  cpu,
-		MemCapacity:  mem,
-	}
-}
-
 // BinPackMinCost computes the minimum cost for the actual bin packing problem
 // Uses Best Fit Decreasing approximation for all cases (no LP solver dependency)
-func BinPackMinCost(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
+func BinPackMinCost(pods []framework.PodInfo, nodes []framework.NodeInfo) float64 {
 	return BestFitDecreasing(pods, nodes)
 }
 
 // BinPackMinCostWithDetails returns both the minimum cost and the pod assignments
 // Returns the cost and a slice where assignments[i] = j means pod i is on node j
-func BinPackMinCostWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) (float64, []int) {
+func BinPackMinCostWithDetails(pods []framework.PodInfo, nodes []framework.NodeInfo) (float64, []int) {
 	return BestFitDecreasingWithDetails(pods, nodes)
 }

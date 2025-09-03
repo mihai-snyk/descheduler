@@ -4,27 +4,8 @@ import (
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
 
-// PodInfo contains essential information about a pod for constraint checking
-type PodInfo struct {
-	Name                   string
-	CPURequest             float64 // in millicores
-	MemRequest             float64 // in bytes
-	CurrentNode            int     // current node assignment
-	ReplicaSetName         string  // for PDB calculations
-	MaxUnavailableReplicas int     // for PDB calculations
-}
-
-// NodeInfo contains node capacity information
-type NodeInfo struct {
-	Name         string
-	CPUCapacity  float64 // in millicores
-	MemCapacity  float64 // in bytes
-	CPUAllocated float64 // already allocated (excluding pods we're moving)
-	MemAllocated float64 // already allocated (excluding pods we're moving)
-}
-
 // ResourceConstraint creates a constraint function that checks resource capacity
-func ResourceConstraint(pods []PodInfo, nodes []NodeInfo) framework.Constraint {
+func ResourceConstraint(pods []framework.PodInfo, nodes []framework.NodeInfo) framework.Constraint {
 	return func(sol framework.Solution) bool {
 		intSol, ok := sol.(*framework.IntegerSolution)
 		if !ok {
@@ -38,12 +19,6 @@ func ResourceConstraint(pods []PodInfo, nodes []NodeInfo) framework.Constraint {
 			cpuUsed float64
 			memUsed float64
 		}, len(nodes))
-
-		// Start with existing allocations
-		for i, node := range nodes {
-			nodeResources[i].cpuUsed = node.CPUAllocated
-			nodeResources[i].memUsed = node.MemAllocated
-		}
 
 		// Add pod assignments
 		for podIdx, nodeIdx := range assignment {
@@ -70,11 +45,11 @@ func ResourceConstraint(pods []PodInfo, nodes []NodeInfo) framework.Constraint {
 }
 
 // PDBConstraint creates a constraint function that checks PDB compliance
-func PDBConstraint(pods []PodInfo) framework.Constraint {
+func PDBConstraint(pods []framework.PodInfo) framework.Constraint {
 	// Build current state
 	currentState := make([]int, len(pods))
 	for i, pod := range pods {
-		currentState[i] = pod.CurrentNode
+		currentState[i] = pod.Node
 	}
 
 	return func(sol framework.Solution) bool {

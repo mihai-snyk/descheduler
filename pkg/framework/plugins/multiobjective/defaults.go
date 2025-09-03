@@ -19,6 +19,7 @@ package multiobjective
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
 
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
@@ -36,13 +37,18 @@ func RegisterDefaults(scheme *runtime.Scheme) error {
 func SetDefaults_MultiObjectiveArgs(obj runtime.Object) {
 	args := obj.(*MultiObjectiveArgs)
 
-	if args.MaxEvictionsPerCycle == 0 {
-		args.MaxEvictionsPerCycle = 5
-	}
-	if args.PopulationSize == 0 {
-		args.PopulationSize = 50
-	}
-	if args.Generations == 0 {
-		args.Generations = 100
+	if args.Weights == nil {
+		args.Weights = &WeightConfig{
+			Cost:       framework.DefaultWeightCost,
+			Disruption: framework.DefaultWeightDisruption,
+			Balance:    framework.DefaultWeightBalance,
+		}
+	} else {
+		// Set individual weight defaults if not specified
+		if args.Weights.Cost == 0 && args.Weights.Disruption == 0 && args.Weights.Balance == 0 {
+			args.Weights.Cost = framework.DefaultWeightCost
+			args.Weights.Disruption = framework.DefaultWeightDisruption
+			args.Weights.Balance = framework.DefaultWeightBalance
+		}
 	}
 }

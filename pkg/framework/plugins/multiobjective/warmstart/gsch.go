@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"sort"
 
-	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/constraints"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
 
@@ -23,8 +22,8 @@ type ObjectiveWeights []float64
 
 // GCSHConfig contains configuration for the Greedy Constructive State Heuristic
 type GCSHConfig struct {
-	Pods                []constraints.PodInfo
-	Nodes               []constraints.NodeInfo
+	Pods                []framework.PodInfo
+	Nodes               []framework.NodeInfo
 	Objectives          []framework.ObjectiveFunc // Only objectives to optimize (e.g., cost, balance - not disruption)
 	Constraints         []framework.Constraint
 	IncludeCurrentState bool
@@ -133,7 +132,7 @@ func (g *GCSH) constructSolution(weights ObjectiveWeights) framework.Solution {
 	// Sort pods by size (largest first for better packing)
 	type podWithIndex struct {
 		index    int
-		pod      constraints.PodInfo
+		pod      framework.PodInfo
 		priority float64
 	}
 
@@ -163,8 +162,8 @@ func (g *GCSH) constructSolution(weights ObjectiveWeights) framework.Solution {
 	nodes := make([]nodeState, len(g.config.Nodes))
 	for i, node := range g.config.Nodes {
 		nodes[i] = nodeState{
-			cpuAvailable: node.CPUCapacity - node.CPUAllocated,
-			memAvailable: node.MemCapacity - node.MemAllocated,
+			cpuAvailable: node.CPUCapacity,
+			memAvailable: node.MemCapacity,
 		}
 	}
 
@@ -270,7 +269,7 @@ func (g *GCSH) createCurrentStateSolution() framework.Solution {
 	vars := make([]int, numPods)
 	bounds := make([]framework.IntBounds, numPods)
 	for i, pod := range g.config.Pods {
-		vars[i] = pod.CurrentNode
+		vars[i] = pod.Node
 		bounds[i] = framework.IntBounds{L: 0, H: numNodes - 1}
 	}
 

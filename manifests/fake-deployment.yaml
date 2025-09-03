@@ -29,3 +29,10 @@ spec:
       containers:
       - name: fake-container
         image: fake-image
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi

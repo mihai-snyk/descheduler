@@ -20,19 +20,28 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// MultiObjectiveArgs holds arguments used to configure MultiObjective plugin.
+// MultiObjectiveArgs holds arguments used to configure the MultiObjective plugin
 type MultiObjectiveArgs struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// MaxEvictionsPerCycle limits the number of evictions per descheduling cycle
-	MaxEvictionsPerCycle int32 `json:"maxEvictionsPerCycle,omitempty"`
+	// Weights for different objectives
+	// +optional
+	Weights *WeightConfig `json:"weights,omitempty"`
+}
 
-	// PopulationSize for NSGA-II algorithm
-	PopulationSize int32 `json:"populationSize,omitempty"`
+// WeightConfig contains the weights for different objectives
+type WeightConfig struct {
+	// Weight for cost objective (0-1)
+	// +optional
+	Cost float64 `json:"cost,omitempty"`
 
-	// Generations is the number of generations to run
-	Generations int32 `json:"generations,omitempty"`
+	// Weight for disruption objective (0-1)
+	// +optional
+	Disruption float64 `json:"disruption,omitempty"`
+
+	// Weight for balance objective (0-1)
+	// +optional
+	Balance float64 `json:"balance,omitempty"`
 }

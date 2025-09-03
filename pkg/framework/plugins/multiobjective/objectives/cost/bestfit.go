@@ -4,12 +4,12 @@ import (
 	"log"
 	"sort"
 
-	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/constraints"
+	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
 )
 
 // BestFitDecreasing implements the Best Fit Decreasing bin packing algorithm
 // for finding a good lower bound on the minimum cost
-func BestFitDecreasing(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
+func BestFitDecreasing(pods []framework.PodInfo, nodes []framework.NodeInfo) float64 {
 	if len(nodes) == 0 || len(pods) == 0 {
 		return 0
 	}
@@ -17,7 +17,7 @@ func BestFitDecreasing(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
 	// Sort pods by size (largest first) for better packing
 	type indexedPod struct {
 		idx  int
-		pod  constraints.PodInfo
+		pod  framework.PodInfo
 		size float64
 	}
 
@@ -40,7 +40,7 @@ func BestFitDecreasing(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
 
 	// Create node state tracking
 	type nodeState struct {
-		node         NodeInfo
+		node         framework.NodeInfo
 		cpuRemaining float64
 		memRemaining float64
 		active       bool
@@ -59,7 +59,7 @@ func BestFitDecreasing(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
 			cpuRemaining: node.CPUCapacity,
 			memRemaining: node.MemCapacity,
 			active:       false,
-			costPerUnit:  node.CostPerHour / totalCapacity,
+			costPerUnit:  node.HourlyCost / totalCapacity,
 		}
 	}
 
@@ -127,7 +127,7 @@ func BestFitDecreasing(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
 	activeCount := 0
 	for _, ns := range nodeStates {
 		if ns.active {
-			totalCost += ns.node.CostPerHour
+			totalCost += ns.node.HourlyCost
 			activeCount++
 		}
 	}
@@ -144,7 +144,7 @@ func BestFitDecreasing(pods []constraints.PodInfo, nodes []NodeInfo) float64 {
 }
 
 // BestFitDecreasingWithDetails returns both the cost and the assignments
-func BestFitDecreasingWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) (float64, []int) {
+func BestFitDecreasingWithDetails(pods []framework.PodInfo, nodes []framework.NodeInfo) (float64, []int) {
 	if len(nodes) == 0 || len(pods) == 0 {
 		return 0, nil
 	}
@@ -152,7 +152,7 @@ func BestFitDecreasingWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) 
 	// Sort pods by size (largest first) for better packing
 	type indexedPod struct {
 		idx  int
-		pod  constraints.PodInfo
+		pod  framework.PodInfo
 		size float64
 	}
 
@@ -175,7 +175,7 @@ func BestFitDecreasingWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) 
 
 	// Create node state tracking
 	type nodeState struct {
-		node         NodeInfo
+		node         framework.NodeInfo
 		cpuRemaining float64
 		memRemaining float64
 		active       bool
@@ -194,7 +194,7 @@ func BestFitDecreasingWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) 
 			cpuRemaining: node.CPUCapacity,
 			memRemaining: node.MemCapacity,
 			active:       false,
-			costPerUnit:  node.CostPerHour / totalCapacity,
+			costPerUnit:  node.HourlyCost / totalCapacity,
 		}
 	}
 
@@ -266,7 +266,7 @@ func BestFitDecreasingWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) 
 	activeCount := 0
 	for _, ns := range nodeStates {
 		if ns.active {
-			totalCost += ns.node.CostPerHour
+			totalCost += ns.node.HourlyCost
 			activeCount++
 		}
 	}
@@ -283,7 +283,7 @@ func BestFitDecreasingWithDetails(pods []constraints.PodInfo, nodes []NodeInfo) 
 					assignments[i] = j
 					if !nodeStates[j].active {
 						nodeStates[j].active = true
-						totalCost += nodeStates[j].node.CostPerHour
+						totalCost += nodeStates[j].node.HourlyCost
 					}
 					break
 				}
