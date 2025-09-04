@@ -398,9 +398,9 @@ func (n *NSGAII) Run() []*NSGAIISolution {
 			}
 		}
 
-		log.Printf("  Offspring: %d unique, %d invalid (%.1f%% validity with smart crossover+mutation)",
-			len(offspringUnique), offspringInvalid,
-			float64(len(offspringUnique)-offspringInvalid)/float64(len(offspringUnique))*100)
+		// log.Printf("  Offspring: %d unique, %d invalid (%.1f%% validity with smart crossover+mutation)",
+		// 	len(offspringUnique), offspringInvalid,
+		// 	float64(len(offspringUnique)-offspringInvalid)/float64(len(offspringUnique))*100)
 
 		// Combine populations
 		combined := append(population, offspring...)
