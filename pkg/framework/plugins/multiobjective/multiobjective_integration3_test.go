@@ -151,6 +151,53 @@ func TestMultiObjectiveOptimization3(t *testing.T) {
 			maxGenerations:   300,
 			expectedBehavior: "Should migrate light workloads from expensive nodes to cheap nodes (original cost objective)",
 		},
+		{
+			name: "SeverelyUnbalanced_OriginalCost",
+			nodes: []NodeConfig{
+				// All nodes same type for pure balance testing
+				{Name: "node-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "node-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "node-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "node-4", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+			},
+			pods: []PodConfig{
+				// ALL pods crammed on node-1 (severely unbalanced)
+				{Name: "overload-1", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+				{Name: "overload-2", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+				{Name: "overload-3", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+				{Name: "overload-4", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+				{Name: "overload-5", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+				// Nodes 2, 3, 4 are completely empty (maximum imbalance)
+			},
+			weightProfile:    WeightProfile{Cost: 0.20, Disruption: 0.30, Balance: 0.50},
+			populationSize:   150,
+			maxGenerations:   400,
+			expectedBehavior: "Should spread pods from overloaded node-1 to empty nodes for better balance (original cost)",
+		},
+		{
+			name: "MixedUnbalance_OriginalCostTradeoff",
+			nodes: []NodeConfig{
+				// Mix of cheap and expensive nodes to test cost vs balance trade-offs
+				{Name: "cheap-overloaded", CPU: 4000, Mem: 8e9, Type: "t3.large", Region: "us-east-1", Lifecycle: "spot"},     // $0.0335/hr - cheap but overloaded
+				{Name: "expensive-empty", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "on-demand"}, // $0.096/hr - expensive but empty
+				{Name: "medium-empty", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},         // $0.036/hr - medium cost, empty
+				{Name: "cheap-empty", CPU: 4000, Mem: 8e9, Type: "t3.large", Region: "us-east-1", Lifecycle: "spot"},          // $0.0335/hr - cheap and empty
+			},
+			pods: []PodConfig{
+				// ALL pods on the cheap node (cost-optimal but severely unbalanced)
+				{Name: "packed-1", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+				{Name: "packed-2", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+				{Name: "packed-3", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+				{Name: "packed-4", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+				{Name: "packed-5", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+				{Name: "packed-6", CPU: 500, Mem: 1e9, Node: 0, RS: "packed-small", MaxUnavail: 1},
+				// Nodes 1, 2, 3 are empty but have different costs
+			},
+			weightProfile:    WeightProfile{Cost: 0.40, Disruption: 0.20, Balance: 0.40},
+			populationSize:   200,
+			maxGenerations:   500,
+			expectedBehavior: "Should balance cost savings vs load distribution with original cost objective",
+		},
 	}
 
 	for _, tc := range testCases {

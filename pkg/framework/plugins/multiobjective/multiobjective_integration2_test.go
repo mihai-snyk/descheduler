@@ -126,32 +126,103 @@ func TestMultiObjectiveOptimization2(t *testing.T) {
 		// 	maxGenerations:   500,
 		// 	expectedBehavior: "Should migrate pods from expensive on-demand nodes to cheap spot nodes with better $/resource ratios",
 		// },
+		// {
+		// 	name: "ExtremeResourceCostDifference",
+		// 	nodes: []NodeConfig{
+		// 		// TERRIBLE $/resource pool - very expensive memory-optimized on-demand
+		// 		{Name: "terrible-1", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"}, // $0.063/vCPU, $0.0079/GiB
+		// 		{Name: "terrible-2", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+		// 		{Name: "terrible-3", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+		// 		// EXCELLENT $/resource pool - very cheap burstable spot instances
+		// 		{Name: "excellent-1", CPU: 4000, Mem: 8e9, Type: "t3.xlarge", Region: "us-east-1", Lifecycle: "spot"}, // $0.0147/vCPU, $0.0037/GiB
+		// 		{Name: "excellent-2", CPU: 4000, Mem: 8e9, Type: "t3.xlarge", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "excellent-3", CPU: 4000, Mem: 8e9, Type: "t3.xlarge", Region: "us-east-1", Lifecycle: "spot"},
+		// 	},
+		// 	pods: []PodConfig{
+		// 		// CPU-intensive workloads on TERRIBLE nodes (massive waste of memory resources)
+		// 		{Name: "cpu-heavy-1", CPU: 2000, Mem: 1e9, Node: 0, RS: "cpu-heavy", MaxUnavail: 1}, // terrible-1: using 2 cores, 1GB of 4 cores, 32GB
+		// 		{Name: "cpu-heavy-2", CPU: 2000, Mem: 1e9, Node: 1, RS: "cpu-heavy", MaxUnavail: 1}, // terrible-2: using 2 cores, 1GB of 4 cores, 32GB
+		// 		{Name: "cpu-heavy-3", CPU: 2000, Mem: 1e9, Node: 2, RS: "cpu-heavy", MaxUnavail: 1}, // terrible-3: using 2 cores, 1GB of 4 cores, 32GB
+		// 		// Balanced workloads on EXCELLENT nodes (good fit)
+		// 		{Name: "balanced-1", CPU: 1500, Mem: 3e9, Node: 3, RS: "balanced", MaxUnavail: 2}, // excellent-1: using 1.5 cores, 3GB of 4 cores, 8GB
+		// 		{Name: "balanced-2", CPU: 1500, Mem: 3e9, Node: 4, RS: "balanced", MaxUnavail: 2}, // excellent-2: using 1.5 cores, 3GB of 4 cores, 8GB
+		// 		{Name: "balanced-3", CPU: 1500, Mem: 3e9, Node: 5, RS: "balanced", MaxUnavail: 2}, // excellent-3: using 1.5 cores, 3GB of 4 cores, 8GB
+		// 	},
+		// 	weightProfile:    WeightProfile{Cost: 0.95, Disruption: 0.05, Balance: 0.00},
+		// 	populationSize:   150,
+		// 	maxGenerations:   300,
+		// 	expectedBehavior: "Should aggressively migrate CPU-heavy workloads from expensive memory-optimized nodes to cheap compute nodes",
+		// },
+		// {
+		// 	name: "SeverelyUnbalanced_CostVsBalance",
+		// 	nodes: []NodeConfig{
+		// 		// All nodes same type for pure balance testing
+		// 		{Name: "node-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "node-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "node-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "node-4", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 	},
+		// 	pods: []PodConfig{
+		// 		// ALL pods crammed on node-1 (severely unbalanced)
+		// 		{Name: "overload-1", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+		// 		{Name: "overload-2", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+		// 		{Name: "overload-3", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+		// 		{Name: "overload-4", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+		// 		{Name: "overload-5", CPU: 800, Mem: 1.5e9, Node: 0, RS: "overload", MaxUnavail: 3},
+		// 		// Nodes 2, 3, 4 are completely empty (maximum imbalance)
+		// 	},
+		// 	weightProfile:    WeightProfile{Cost: 0.10, Disruption: 0.10, Balance: 0.80},
+		// 	populationSize:   150,
+		// 	maxGenerations:   400,
+		// 	expectedBehavior: "Should spread pods from overloaded node-1 to empty nodes for better balance",
+		// },
+		// {
+		// 	name: "MixedUnbalance_CostVsBalanceTradeoff",
+		// 	nodes: []NodeConfig{
+		// 		// Mix of cheap and expensive nodes to test cost vs balance trade-offs
+		// 		{Name: "cheap-overloaded", CPU: 4000, Mem: 8e9, Type: "t3.large", Region: "us-east-1", Lifecycle: "spot"},     // $0.0335/hr - cheap but overloaded
+		// 		{Name: "expensive-empty", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "on-demand"}, // $0.096/hr - expensive but empty
+		// 		{Name: "medium-empty", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},         // $0.036/hr - medium cost, empty
+		// 		{Name: "cheap-empty", CPU: 4000, Mem: 8e9, Type: "t3.large", Region: "us-east-1", Lifecycle: "spot"},          // $0.0335/hr - cheap and empty
+		// 	},
+		// 	pods: []PodConfig{
+		// 		// ALL pods on the cheap node (cost-optimal but severely unbalanced)
+		// 		{Name: "packed-1", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+		// 		{Name: "packed-2", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+		// 		{Name: "packed-3", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+		// 		{Name: "packed-4", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+		// 		{Name: "packed-5", CPU: 700, Mem: 1.2e9, Node: 0, RS: "packed", MaxUnavail: 2},
+		// 		{Name: "packed-6", CPU: 500, Mem: 1e9, Node: 0, RS: "packed-small", MaxUnavail: 1},
+		// 		// Nodes 1, 2, 3 are empty but have different costs
+		// 	},
+		// 	weightProfile:    WeightProfile{Cost: 0.40, Disruption: 0.20, Balance: 0.40},
+		// 	populationSize:   200,
+		// 	maxGenerations:   500,
+		// 	expectedBehavior: "Should balance cost savings vs load distribution - prefer cheaper nodes but spread for balance",
+		// },
 		{
-			name: "ExtremeResourceCostDifference",
+			name: "BalanceFocused_MinimalCost",
 			nodes: []NodeConfig{
-				// TERRIBLE $/resource pool - very expensive memory-optimized on-demand
-				{Name: "terrible-1", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"}, // $0.063/vCPU, $0.0079/GiB
-				{Name: "terrible-2", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-				{Name: "terrible-3", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-				// EXCELLENT $/resource pool - very cheap burstable spot instances
-				{Name: "excellent-1", CPU: 4000, Mem: 8e9, Type: "t3.xlarge", Region: "us-east-1", Lifecycle: "spot"}, // $0.0147/vCPU, $0.0037/GiB
-				{Name: "excellent-2", CPU: 4000, Mem: 8e9, Type: "t3.xlarge", Region: "us-east-1", Lifecycle: "spot"},
-				{Name: "excellent-3", CPU: 4000, Mem: 8e9, Type: "t3.xlarge", Region: "us-east-1", Lifecycle: "spot"},
+				// All same cost to focus purely on balance
+				{Name: "balance-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "balance-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "balance-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "balance-4", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
 			},
 			pods: []PodConfig{
-				// CPU-intensive workloads on TERRIBLE nodes (massive waste of memory resources)
-				{Name: "cpu-heavy-1", CPU: 2000, Mem: 1e9, Node: 0, RS: "cpu-heavy", MaxUnavail: 1}, // terrible-1: using 2 cores, 1GB of 4 cores, 32GB
-				{Name: "cpu-heavy-2", CPU: 2000, Mem: 1e9, Node: 1, RS: "cpu-heavy", MaxUnavail: 1}, // terrible-2: using 2 cores, 1GB of 4 cores, 32GB
-				{Name: "cpu-heavy-3", CPU: 2000, Mem: 1e9, Node: 2, RS: "cpu-heavy", MaxUnavail: 1}, // terrible-3: using 2 cores, 1GB of 4 cores, 32GB
-				// Balanced workloads on EXCELLENT nodes (good fit)
-				{Name: "balanced-1", CPU: 1500, Mem: 3e9, Node: 3, RS: "balanced", MaxUnavail: 2}, // excellent-1: using 1.5 cores, 3GB of 4 cores, 8GB
-				{Name: "balanced-2", CPU: 1500, Mem: 3e9, Node: 4, RS: "balanced", MaxUnavail: 2}, // excellent-2: using 1.5 cores, 3GB of 4 cores, 8GB
-				{Name: "balanced-3", CPU: 1500, Mem: 3e9, Node: 5, RS: "balanced", MaxUnavail: 2}, // excellent-3: using 1.5 cores, 3GB of 4 cores, 8GB
+				// Extremely unbalanced: all on first two nodes
+				{Name: "unbal-1", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
+				{Name: "unbal-2", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
+				{Name: "unbal-3", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
+				{Name: "unbal-4", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
+				{Name: "unbal-5", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
+				{Name: "unbal-6", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
+				// Nodes 3 and 4 are completely empty
 			},
-			weightProfile:    WeightProfile{Cost: 0.95, Disruption: 0.05, Balance: 0.00},
+			weightProfile:    WeightProfile{Cost: 0.10, Disruption: 0.20, Balance: 0.70},
 			populationSize:   150,
 			maxGenerations:   300,
-			expectedBehavior: "Should aggressively migrate CPU-heavy workloads from expensive memory-optimized nodes to cheap compute nodes",
+			expectedBehavior: "Should prioritize balance over cost - spread pods evenly across all nodes",
 		},
 	}
 
