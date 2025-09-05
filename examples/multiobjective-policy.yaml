@@ -6,9 +6,9 @@ profiles:
     - name: "MultiObjective"
       args:
         weights:
-          cost: 0.30
-          disruption: 0.50
-          balance: 0.20
+          cost: 0.90
+          disruption: 0.10
+          balance: 0.00
     plugins:
       balance:
         enabled:

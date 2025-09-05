@@ -25,68 +25,68 @@ func TestMultiObjectiveOptimization2(t *testing.T) {
 		maxGenerations   int
 		expectedBehavior string
 	}{
-		// {
-		// 	name: "LargeCluster_MixedWorkloads",
-		// 	nodes: []NodeConfig{
-		// 		// Production nodes - stable, on-demand
-		// 		{Name: "prod-1", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 		{Name: "prod-2", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 		{Name: "prod-3", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 		{Name: "prod-4", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 		// Development nodes - mix of spot and on-demand
-		// 		{Name: "dev-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
-		// 		{Name: "dev-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
-		// 		{Name: "dev-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 		// Worker nodes - compute optimized
-		// 		{Name: "worker-1", CPU: 16000, Mem: 16e9, Type: "c5.2xlarge", Region: "us-east-1", Lifecycle: "spot"},
-		// 		{Name: "worker-2", CPU: 16000, Mem: 16e9, Type: "c5.2xlarge", Region: "us-east-1", Lifecycle: "spot"},
-		// 		// Memory optimized nodes
-		// 		{Name: "mem-1", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 		{Name: "mem-2", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
-		// 	},
-		// 	pods: []PodConfig{
-		// 		// Frontend pods (12 replicas)
-		// 		{Name: "frontend-1", CPU: 500, Mem: 1e9, Node: 0, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-2", CPU: 500, Mem: 1e9, Node: 0, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-3", CPU: 500, Mem: 1e9, Node: 1, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-4", CPU: 500, Mem: 1e9, Node: 1, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-5", CPU: 500, Mem: 1e9, Node: 2, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-6", CPU: 500, Mem: 1e9, Node: 2, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-7", CPU: 500, Mem: 1e9, Node: 3, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-8", CPU: 500, Mem: 1e9, Node: 3, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-9", CPU: 500, Mem: 1e9, Node: 4, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-10", CPU: 500, Mem: 1e9, Node: 4, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-11", CPU: 500, Mem: 1e9, Node: 5, RS: "frontend", MaxUnavail: 2},
-		// 		{Name: "frontend-12", CPU: 500, Mem: 1e9, Node: 5, RS: "frontend", MaxUnavail: 2},
-		// 		// API pods (8 replicas)
-		// 		{Name: "api-1", CPU: 1000, Mem: 2e9, Node: 0, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-2", CPU: 1000, Mem: 2e9, Node: 1, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-3", CPU: 1000, Mem: 2e9, Node: 2, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-4", CPU: 1000, Mem: 2e9, Node: 3, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-5", CPU: 1000, Mem: 2e9, Node: 0, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-6", CPU: 1000, Mem: 2e9, Node: 1, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-7", CPU: 1000, Mem: 2e9, Node: 2, RS: "api", MaxUnavail: 1},
-		// 		{Name: "api-8", CPU: 1000, Mem: 2e9, Node: 3, RS: "api", MaxUnavail: 1},
-		// 		// Cache pods (6 replicas) - need 6GB each, so careful with placement
-		// 		{Name: "cache-1", CPU: 1000, Mem: 6e9, Node: 9, RS: "cache", MaxUnavail: 2},  // mem-1 (32GB)
-		// 		{Name: "cache-2", CPU: 1000, Mem: 6e9, Node: 10, RS: "cache", MaxUnavail: 2}, // mem-2 (32GB)
-		// 		{Name: "cache-3", CPU: 1000, Mem: 6e9, Node: 9, RS: "cache", MaxUnavail: 2},  // mem-1 (32GB)
-		// 		{Name: "cache-4", CPU: 1000, Mem: 6e9, Node: 10, RS: "cache", MaxUnavail: 2}, // mem-2 (32GB)
-		// 		{Name: "cache-5", CPU: 1000, Mem: 6e9, Node: 0, RS: "cache", MaxUnavail: 2},  // prod-1 (16GB)
-		// 		{Name: "cache-6", CPU: 1000, Mem: 6e9, Node: 1, RS: "cache", MaxUnavail: 2},  // prod-2 (16GB)
-		// 		// Worker pods (4 replicas)
-		// 		{Name: "worker-job-1", CPU: 4000, Mem: 4e9, Node: 7, RS: "worker", MaxUnavail: 3},
-		// 		{Name: "worker-job-2", CPU: 4000, Mem: 4e9, Node: 7, RS: "worker", MaxUnavail: 3},
-		// 		{Name: "worker-job-3", CPU: 4000, Mem: 4e9, Node: 8, RS: "worker", MaxUnavail: 3},
-		// 		{Name: "worker-job-4", CPU: 4000, Mem: 4e9, Node: 8, RS: "worker", MaxUnavail: 3},
-		// 		{Name: "test-runner-1", CPU: 1500, Mem: 3e9, Node: 4, RS: "test", MaxUnavail: 2},
-		// 		{Name: "test-runner-2", CPU: 1500, Mem: 3e9, Node: 5, RS: "test", MaxUnavail: 2},
-		// 	},
-		// 	weightProfile:    WeightProfile{Cost: 0.00, Disruption: 0.40, Balance: 0.60},
-		// 	populationSize:   400,
-		// 	maxGenerations:   1000,
-		// 	expectedBehavior: "Should consolidate non-critical workloads to spot nodes while respecting PDBs",
-		// },
+		{
+			name: "LargeCluster_MixedWorkloads",
+			nodes: []NodeConfig{
+				// Production nodes - stable, on-demand
+				{Name: "prod-1", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+				{Name: "prod-2", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+				{Name: "prod-3", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+				{Name: "prod-4", CPU: 8000, Mem: 16e9, Type: "m5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+				// Development nodes - mix of spot and on-demand
+				{Name: "dev-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "dev-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "dev-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "on-demand"},
+				// Worker nodes - compute optimized
+				{Name: "worker-1", CPU: 16000, Mem: 16e9, Type: "c5.2xlarge", Region: "us-east-1", Lifecycle: "spot"},
+				{Name: "worker-2", CPU: 16000, Mem: 16e9, Type: "c5.2xlarge", Region: "us-east-1", Lifecycle: "spot"},
+				// Memory optimized nodes
+				{Name: "mem-1", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+				{Name: "mem-2", CPU: 4000, Mem: 32e9, Type: "r5.xlarge", Region: "us-east-1", Lifecycle: "on-demand"},
+			},
+			pods: []PodConfig{
+				// Frontend pods (12 replicas)
+				{Name: "frontend-1", CPU: 500, Mem: 1e9, Node: 0, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-2", CPU: 500, Mem: 1e9, Node: 0, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-3", CPU: 500, Mem: 1e9, Node: 1, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-4", CPU: 500, Mem: 1e9, Node: 1, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-5", CPU: 500, Mem: 1e9, Node: 2, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-6", CPU: 500, Mem: 1e9, Node: 2, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-7", CPU: 500, Mem: 1e9, Node: 3, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-8", CPU: 500, Mem: 1e9, Node: 3, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-9", CPU: 500, Mem: 1e9, Node: 4, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-10", CPU: 500, Mem: 1e9, Node: 4, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-11", CPU: 500, Mem: 1e9, Node: 5, RS: "frontend", MaxUnavail: 2},
+				{Name: "frontend-12", CPU: 500, Mem: 1e9, Node: 5, RS: "frontend", MaxUnavail: 2},
+				// API pods (8 replicas)
+				{Name: "api-1", CPU: 1000, Mem: 2e9, Node: 0, RS: "api", MaxUnavail: 1},
+				{Name: "api-2", CPU: 1000, Mem: 2e9, Node: 1, RS: "api", MaxUnavail: 1},
+				{Name: "api-3", CPU: 1000, Mem: 2e9, Node: 2, RS: "api", MaxUnavail: 1},
+				{Name: "api-4", CPU: 1000, Mem: 2e9, Node: 3, RS: "api", MaxUnavail: 1},
+				{Name: "api-5", CPU: 1000, Mem: 2e9, Node: 0, RS: "api", MaxUnavail: 1},
+				{Name: "api-6", CPU: 1000, Mem: 2e9, Node: 1, RS: "api", MaxUnavail: 1},
+				{Name: "api-7", CPU: 1000, Mem: 2e9, Node: 2, RS: "api", MaxUnavail: 1},
+				{Name: "api-8", CPU: 1000, Mem: 2e9, Node: 3, RS: "api", MaxUnavail: 1},
+				// Cache pods (6 replicas) - need 6GB each, so careful with placement
+				{Name: "cache-1", CPU: 1000, Mem: 6e9, Node: 9, RS: "cache", MaxUnavail: 2},  // mem-1 (32GB)
+				{Name: "cache-2", CPU: 1000, Mem: 6e9, Node: 10, RS: "cache", MaxUnavail: 2}, // mem-2 (32GB)
+				{Name: "cache-3", CPU: 1000, Mem: 6e9, Node: 9, RS: "cache", MaxUnavail: 2},  // mem-1 (32GB)
+				{Name: "cache-4", CPU: 1000, Mem: 6e9, Node: 10, RS: "cache", MaxUnavail: 2}, // mem-2 (32GB)
+				{Name: "cache-5", CPU: 1000, Mem: 6e9, Node: 0, RS: "cache", MaxUnavail: 2},  // prod-1 (16GB)
+				{Name: "cache-6", CPU: 1000, Mem: 6e9, Node: 1, RS: "cache", MaxUnavail: 2},  // prod-2 (16GB)
+				// Worker pods (4 replicas)
+				{Name: "worker-job-1", CPU: 4000, Mem: 4e9, Node: 7, RS: "worker", MaxUnavail: 3},
+				{Name: "worker-job-2", CPU: 4000, Mem: 4e9, Node: 7, RS: "worker", MaxUnavail: 3},
+				{Name: "worker-job-3", CPU: 4000, Mem: 4e9, Node: 8, RS: "worker", MaxUnavail: 3},
+				{Name: "worker-job-4", CPU: 4000, Mem: 4e9, Node: 8, RS: "worker", MaxUnavail: 3},
+				{Name: "test-runner-1", CPU: 1500, Mem: 3e9, Node: 4, RS: "test", MaxUnavail: 2},
+				{Name: "test-runner-2", CPU: 1500, Mem: 3e9, Node: 5, RS: "test", MaxUnavail: 2},
+			},
+			weightProfile:    WeightProfile{Cost: 0.60, Disruption: 0.20, Balance: 0.20},
+			populationSize:   400,
+			maxGenerations:   1000,
+			expectedBehavior: "Should consolidate non-critical workloads to spot nodes while respecting PDBs",
+		},
 		// {
 		// 	name: "BadToGood_ResourceCostMigration",
 		// 	nodes: []NodeConfig{
@@ -200,30 +200,30 @@ func TestMultiObjectiveOptimization2(t *testing.T) {
 		// 	maxGenerations:   500,
 		// 	expectedBehavior: "Should balance cost savings vs load distribution - prefer cheaper nodes but spread for balance",
 		// },
-		{
-			name: "BalanceFocused_MinimalCost",
-			nodes: []NodeConfig{
-				// All same cost to focus purely on balance
-				{Name: "balance-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
-				{Name: "balance-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
-				{Name: "balance-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
-				{Name: "balance-4", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
-			},
-			pods: []PodConfig{
-				// Extremely unbalanced: all on first two nodes
-				{Name: "unbal-1", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
-				{Name: "unbal-2", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
-				{Name: "unbal-3", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
-				{Name: "unbal-4", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
-				{Name: "unbal-5", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
-				{Name: "unbal-6", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
-				// Nodes 3 and 4 are completely empty
-			},
-			weightProfile:    WeightProfile{Cost: 0.10, Disruption: 0.20, Balance: 0.70},
-			populationSize:   150,
-			maxGenerations:   300,
-			expectedBehavior: "Should prioritize balance over cost - spread pods evenly across all nodes",
-		},
+		// {
+		// 	name: "BalanceFocused_MinimalCost",
+		// 	nodes: []NodeConfig{
+		// 		// All same cost to focus purely on balance
+		// 		{Name: "balance-1", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "balance-2", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "balance-3", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 		{Name: "balance-4", CPU: 4000, Mem: 8e9, Type: "m5.large", Region: "us-east-1", Lifecycle: "spot"},
+		// 	},
+		// 	pods: []PodConfig{
+		// 		// Extremely unbalanced: all on first two nodes
+		// 		{Name: "unbal-1", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
+		// 		{Name: "unbal-2", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
+		// 		{Name: "unbal-3", CPU: 1000, Mem: 2e9, Node: 0, RS: "unbal-a", MaxUnavail: 2},
+		// 		{Name: "unbal-4", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
+		// 		{Name: "unbal-5", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
+		// 		{Name: "unbal-6", CPU: 1000, Mem: 2e9, Node: 1, RS: "unbal-b", MaxUnavail: 2},
+		// 		// Nodes 3 and 4 are completely empty
+		// 	},
+		// 	weightProfile:    WeightProfile{Cost: 0.10, Disruption: 0.20, Balance: 0.70},
+		// 	populationSize:   150,
+		// 	maxGenerations:   300,
+		// 	expectedBehavior: "Should prioritize balance over cost - spread pods evenly across all nodes",
+		// },
 	}
 
 	for _, tc := range testCases {

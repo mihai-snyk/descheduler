@@ -15,46 +15,132 @@ spec:
           spec:
             type: object
             properties:
-              hints:
+              clusterFingerprint:
+                type: string
+                description: "SHA256 hash of the cluster state (sorted node and pod names)"
+              solutions:
                 type: array
+                description: "Array of optimization solutions from NSGA-II"
                 items:
                   type: object
-                  required:
-                  - podName
-                  - podNamespace
-                  - targetNode
                   properties:
-                    podName:
-                      type: string
-                    podNamespace:
-                      type: string
-                    targetNode:
-                      type: string
-                    priority:
+                    rank:
                       type: integer
-                      default: 100
-                    reason:
-                      type: string
+                      description: "Solution rank in Pareto front (1 = best)"
+                    weightedScore:
+                      type: number
+                      format: double
+                      description: "Weighted objective score"
+                    objectives:
+                      type: object
+                      properties:
+                        cost:
+                          type: number
+                          format: double
+                        disruption:
+                          type: number
+                          format: double
+                        balance:
+                          type: number
+                          format: double
+                      required:
+                      - cost
+                      - disruption
+                      - balance
+                    movementCount:
+                      type: integer
+                      description: "Total number of pod movements in this solution"
+                    replicaSetMovements:
+                      type: array
+                      description: "ReplicaSet-level movement recommendations with atomic slot tracking"
+                      items:
+                        type: object
+                        properties:
+                          replicaSetName:
+                            type: string
+                          namespace:
+                            type: string
+                          targetDistribution:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                            description: "Target distribution of replicas across nodes (node name -> replica count)"
+                          availableSlots:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                            description: "Remaining scheduling slots for atomic reservation (node name -> available slots)"
+                          scheduledCount:
+                            type: object
+                            additionalProperties:
+                              type: integer
+                            description: "Number of pods scheduled via this hint (node name -> scheduled count)"
+                          reason:
+                            type: string
+                            description: "Optimization rationale"
+                        required:
+                        - replicaSetName
+                        - namespace
+                        - targetDistribution
+                        - availableSlots
+                        - reason
+                  required:
+                  - rank
+                  - weightedScore
+                  - objectives
+                  - movementCount
+                  - replicaSetMovements
               expirationTime:
                 type: string
                 format: date-time
-              deschedulerGeneration:
-                type: integer
+                description: "When these hints expire"
+              generatedAt:
+                type: string
+                format: date-time
+                description: "When these hints were generated"
+              deschedulerVersion:
+                type: string
+                description: "Version of descheduler that generated these hints"
+            required:
+            - clusterFingerprint
+            - solutions
+            - expirationTime
+            - generatedAt
           status:
             type: object
             properties:
-              appliedHints:
+              phase:
+                type: string
+                enum: ["Active", "Expired", "Applied"]
+                description: "Current phase of the scheduling hints"
+              appliedMovements:
+                type: integer
+                description: "Number of movements that have been applied"
+              lastAppliedTime:
+                type: string
+                format: date-time
+                description: "When movements were last applied"
+              conditions:
                 type: array
+                description: "Latest available observations of the hint's current state"
                 items:
                   type: object
                   properties:
-                    podName:
+                    type:
                       type: string
-                    appliedAt:
+                    status:
+                      type: string
+                    lastTransitionTime:
                       type: string
                       format: date-time
+                    reason:
+                      type: string
+                    message:
+                      type: string
   scope: Cluster
   names:
     plural: schedulinghints
     singular: schedulinghint
     kind: SchedulingHint
+    shortNames:
+    - hints

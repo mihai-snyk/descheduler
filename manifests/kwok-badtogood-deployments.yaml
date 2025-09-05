@@ -1,0 +1,190 @@
+---
+# Group A Deployments - Intentionally placed on BAD (expensive) nodes
+# app-a deployment (4 replicas, MaxUnavailable: 2)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-a
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: app-a
+  template:
+    metadata:
+      labels:
+        app: app-a
+    spec:
+      nodeSelector:
+        eks.amazonaws.com/capacityType: "on-demand"  # Force to BAD nodes initially
+      tolerations:
+      - key: kwok.x-k8s.io/node
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: app
+        image: nginx:1.21
+        resources:
+          requests:
+            cpu: 1000m      # 1 vCPU
+            memory: 2Gi     # 2GB
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+
+---
+# web-a deployment (4 replicas, MaxUnavailable: 1)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-a
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: web-a
+  template:
+    metadata:
+      labels:
+        app: web-a
+    spec:
+      nodeSelector:
+        eks.amazonaws.com/capacityType: "on-demand"  # Force to BAD nodes initially
+      tolerations:
+      - key: kwok.x-k8s.io/node
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: web
+        image: nginx:1.21
+        resources:
+          requests:
+            cpu: 500m       # 0.5 vCPU
+            memory: 1Gi     # 1GB
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+# Group B Deployments - Already efficiently placed on GOOD (cheap) nodes
+# app-b deployment (4 replicas, MaxUnavailable: 2)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-b
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: app-b
+  template:
+    metadata:
+      labels:
+        app: app-b
+    spec:
+      nodeSelector:
+        eks.amazonaws.com/capacityType: "spot"  # Already on GOOD nodes
+      tolerations:
+      - key: kwok.x-k8s.io/node
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: app
+        image: nginx:1.21
+        resources:
+          requests:
+            cpu: 1000m      # 1 vCPU
+            memory: 2Gi     # 2GB
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+
+---
+# web-b deployment (4 replicas, MaxUnavailable: 1)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-b
+  namespace: default
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: web-b
+  template:
+    metadata:
+      labels:
+        app: web-b
+    spec:
+      nodeSelector:
+        eks.amazonaws.com/capacityType: "spot"  # Already on GOOD nodes
+      tolerations:
+      - key: kwok.x-k8s.io/node
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - name: web
+        image: nginx:1.21
+        resources:
+          requests:
+            cpu: 500m       # 0.5 vCPU
+            memory: 1Gi     # 1GB
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+# PodDisruptionBudgets matching the test scenario
+# app-a PDB (MaxUnavailable: 2)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app-a-pdb
+  namespace: default
+spec:
+  maxUnavailable: 2
+  selector:
+    matchLabels:
+      app: app-a
+
+---
+# web-a PDB (MaxUnavailable: 1)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-a-pdb
+  namespace: default
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: web-a
+
+---
+# app-b PDB (MaxUnavailable: 2)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: app-b-pdb
+  namespace: default
+spec:
+  maxUnavailable: 2
+  selector:
+    matchLabels:
+      app: app-b
+
+---
+# web-b PDB (MaxUnavailable: 1)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-b-pdb
+  namespace: default
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: web-b

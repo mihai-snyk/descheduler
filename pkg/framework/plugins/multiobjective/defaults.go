@@ -19,7 +19,20 @@ package multiobjective
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/v2"
-	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/framework"
+)
+
+const (
+	// Algorithm defaults
+	DefaultPopulationSize       = 400
+	DefaultMaxGenerations       = 1000
+	DefaultCrossoverProbability = 0.90
+	DefaultMutationProbability  = 0.30
+	DefaultTournamentSize       = 3
+
+	// Weight defaults
+	DefaultWeightCost       = 0.33
+	DefaultWeightDisruption = 0.33
+	DefaultWeightBalance    = 0.34
 )
 
 func addDefaultingFuncs(scheme *runtime.Scheme) error {
@@ -39,16 +52,16 @@ func SetDefaults_MultiObjectiveArgs(obj runtime.Object) {
 
 	if args.Weights == nil {
 		args.Weights = &WeightConfig{
-			Cost:       framework.DefaultWeightCost,
-			Disruption: framework.DefaultWeightDisruption,
-			Balance:    framework.DefaultWeightBalance,
+			Cost:       DefaultWeightCost,
+			Disruption: DefaultWeightDisruption,
+			Balance:    DefaultWeightBalance,
 		}
 	} else {
 		// Set individual weight defaults if not specified
 		if args.Weights.Cost == 0 && args.Weights.Disruption == 0 && args.Weights.Balance == 0 {
-			args.Weights.Cost = framework.DefaultWeightCost
-			args.Weights.Disruption = framework.DefaultWeightDisruption
-			args.Weights.Balance = framework.DefaultWeightBalance
+			args.Weights.Cost = DefaultWeightCost
+			args.Weights.Disruption = DefaultWeightDisruption
+			args.Weights.Balance = DefaultWeightBalance
 		}
 	}
 }

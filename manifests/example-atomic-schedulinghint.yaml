@@ -1,0 +1,46 @@
+apiVersion: descheduler.io/v1alpha1
+kind: SchedulingHint
+metadata:
+  name: multiobjective-hints-atomic-example
+  labels:
+    descheduler.io/plugin: "multiobjective"
+    descheduler.io/cluster-fingerprint: "atomic-example"
+spec:
+  clusterFingerprint: "atomic-example"
+  expirationTime: "2024-12-08T10:00:00Z"
+  generatedAt: "2024-12-07T10:00:00Z"
+  deschedulerVersion: "descheduler-dev"
+  solutions:
+  - rank: 1
+    weightedScore: 0.1234
+    objectives:
+      cost: 0.2500
+      disruption: 0.3000
+      balance: 0.4500
+    movementCount: 6
+    # ReplicaSet-level movements with atomic slot tracking
+    replicaSetMovements:
+    - replicaSetName: "app-a-566c66c7b"
+      namespace: "default"
+      targetDistribution:
+        "good-1": 2    # Want 2 total replicas on good-1
+        "good-2": 2    # Want 2 total replicas on good-2
+      availableSlots:
+        "good-1": 2    # 2 slots available for reservation
+        "good-2": 2    # 2 slots available for reservation
+      scheduledCount:
+        "good-1": 0    # 0 pods scheduled so far
+        "good-2": 0    # 0 pods scheduled so far
+      reason: "Multi-objective optimization: atomic slot reservation for ReplicaSet redistribution"
+    - replicaSetName: "web-a-7fc5cc5744"
+      namespace: "default"
+      targetDistribution:
+        "good-3": 2    # Want 2 total replicas on good-3
+      availableSlots:
+        "good-3": 2    # 2 slots available for reservation
+      scheduledCount:
+        "good-3": 0    # 0 pods scheduled so far
+      reason: "Multi-objective optimization: atomic slot reservation for ReplicaSet redistribution"
+status:
+  phase: "Active"
+  appliedMovements: 0

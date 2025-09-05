@@ -1,0 +1,394 @@
+---
+# BAD $/resource pool - expensive on-demand m5.xlarge instances
+apiVersion: v1
+kind: Node
+metadata:
+  name: bad-1
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: bad-1
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.xlarge
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: on-demand
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: bad-2
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: bad-2
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.xlarge
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: on-demand
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: bad-3
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: bad-3
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.xlarge
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: on-demand
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: bad-4
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: bad-4
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.xlarge
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: on-demand
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+# GOOD $/resource pool - cheap spot m5.large instances
+apiVersion: v1
+kind: Node
+metadata:
+  name: good-1
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: good-1
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.large
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: spot
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: good-2
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: good-2
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.large
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: spot
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: good-3
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: good-3
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.large
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: spot
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
+---
+apiVersion: v1
+kind: Node
+metadata:
+  name: good-4
+  labels:
+    beta.kubernetes.io/arch: amd64
+    beta.kubernetes.io/os: linux
+    kubernetes.io/arch: amd64
+    kubernetes.io/hostname: good-4
+    kubernetes.io/os: linux
+    kubernetes.io/role: agent
+    node-role.kubernetes.io/agent: ""
+    type: kwok
+    node.kubernetes.io/instance-type: m5.large
+    topology.kubernetes.io/region: us-east-1
+    eks.amazonaws.com/capacityType: spot
+  annotations:
+    node.alpha.kubernetes.io/ttl: "0"
+    kwok.x-k8s.io/node: fake
+spec:
+  taints:
+  - key: kwok.x-k8s.io/node
+    value: fake
+    effect: NoSchedule
+status:
+  allocatable:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  capacity:
+    cpu: "4"
+    memory: 8Gi
+    pods: "110"
+  conditions:
+  - type: Ready
+    status: "True"
+  nodeInfo:
+    architecture: amd64
+    bootID: ""
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running

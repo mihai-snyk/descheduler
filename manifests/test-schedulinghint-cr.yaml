@@ -1,0 +1,44 @@
+apiVersion: descheduler.io/v1alpha1
+kind: SchedulingHint
+metadata:
+  name: multiobjective-hints-abc123def456
+  labels:
+    descheduler.io/plugin: "multiobjective"
+    descheduler.io/cluster-fingerprint: "abc123def456"
+spec:
+  clusterFingerprint: "abc123def456"
+  expirationTime: "2024-12-08T10:00:00Z"
+  generatedAt: "2024-12-07T10:00:00Z"
+  deschedulerVersion: "descheduler-dev"
+  solutions:
+  - rank: 1
+    weightedScore: 0.1234
+    objectives:
+      cost: 0.2500
+      disruption: 0.3000
+      balance: 0.4500
+    movementCount: 2
+    movements:
+    - podName: "app-a-1"
+      podNamespace: "default"
+      targetNode: "good-1"
+      reason: "this algorithm is smart enough"
+    - podName: "app-a-2"
+      podNamespace: "default"
+      targetNode: "good-2"
+      reason: "this algorithm is smart enough"
+  - rank: 2
+    weightedScore: 0.2345
+    objectives:
+      cost: 0.3000
+      disruption: 0.2500
+      balance: 0.4000
+    movementCount: 1
+    movements:
+    - podName: "web-a-1"
+      podNamespace: "default"
+      targetNode: "good-3"
+      reason: "this algorithm is smart enough"
+status:
+  phase: "Active"
+  appliedMovements: 0

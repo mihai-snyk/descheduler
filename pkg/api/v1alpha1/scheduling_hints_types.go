@@ -36,44 +36,105 @@ type SchedulingHint struct {
 
 // SchedulingHintSpec defines the desired state of SchedulingHint
 type SchedulingHintSpec struct {
-	// Hints contains the list of scheduling hints
-	Hints []PodSchedulingHint `json:"hints"`
+	// ClusterFingerprint is a SHA256 hash of the cluster state (sorted node and pod names)
+	// This field is used by multi-objective optimization to match hints to cluster states
+	ClusterFingerprint string `json:"clusterFingerprint"`
+
+	// Solutions contains optimization solutions from multi-objective algorithms
+	Solutions []OptimizationSolution `json:"solutions"`
 
 	// ExpirationTime is when these hints should no longer be used
-	ExpirationTime *metav1.Time `json:"expirationTime,omitempty"`
+	ExpirationTime *metav1.Time `json:"expirationTime"`
 
-	// DeschedulerGeneration tracks which descheduler run created these hints
-	DeschedulerGeneration int64 `json:"deschedulerGeneration,omitempty"`
-}
+	// GeneratedAt indicates when these hints were generated
+	GeneratedAt *metav1.Time `json:"generatedAt"`
 
-// PodSchedulingHint represents a hint for a single pod
-type PodSchedulingHint struct {
-	// PodName is the name of the pod
-	PodName string `json:"podName"`
-
-	// PodNamespace is the namespace of the pod
-	PodNamespace string `json:"podNamespace"`
-
-	// TargetNode is the recommended node for this pod
-	TargetNode string `json:"targetNode"`
-
-	// Priority indicates how strongly this hint should be followed (higher = stronger)
-	Priority int32 `json:"priority,omitempty"`
-
-	// Reason explains why this placement is recommended
-	Reason string `json:"reason,omitempty"`
+	// DeschedulerVersion is the version of descheduler that generated these hints
+	DeschedulerVersion string `json:"deschedulerVersion,omitempty"`
 }
 
 // SchedulingHintStatus defines the observed state of SchedulingHint
 type SchedulingHintStatus struct {
-	// AppliedHints tracks which hints have been used by the scheduler
-	AppliedHints []AppliedHint `json:"appliedHints,omitempty"`
+	// Phase represents the current phase of the scheduling hints
+	// +kubebuilder:validation:Enum=Active;Expired;Applied
+	Phase SchedulingHintPhase `json:"phase,omitempty"`
+
+	// AppliedMovements is the number of movements that have been applied
+	AppliedMovements int `json:"appliedMovements,omitempty"`
+
+	// LastAppliedTime is when movements were last applied
+	LastAppliedTime *metav1.Time `json:"lastAppliedTime,omitempty"`
+
+	// Conditions represent the latest available observations of the hint's current state
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
-// AppliedHint represents a hint that was used by the scheduler
-type AppliedHint struct {
-	PodName   string       `json:"podName"`
-	AppliedAt *metav1.Time `json:"appliedAt"`
+// SchedulingHintPhase represents the phase of scheduling hints
+type SchedulingHintPhase string
+
+const (
+	// SchedulingHintPhaseActive indicates the hints are active and can be used
+	SchedulingHintPhaseActive SchedulingHintPhase = "Active"
+
+	// SchedulingHintPhaseExpired indicates the hints have expired
+	SchedulingHintPhaseExpired SchedulingHintPhase = "Expired"
+
+	// SchedulingHintPhaseApplied indicates the hints have been applied
+	SchedulingHintPhaseApplied SchedulingHintPhase = "Applied"
+)
+
+// OptimizationSolution represents a single solution from multi-objective optimization
+type OptimizationSolution struct {
+	// Rank is the solution rank in Pareto front (1 = best)
+	Rank int `json:"rank"`
+
+	// WeightedScore is the weighted objective score
+	WeightedScore float64 `json:"weightedScore"`
+
+	// Objectives contains the individual objective values
+	Objectives ObjectiveValues `json:"objectives"`
+
+	// MovementCount is the total number of pod movements in this solution
+	MovementCount int `json:"movementCount"`
+
+	// ReplicaSetMovements contains ReplicaSet-level movement recommendations
+	ReplicaSetMovements []ReplicaSetMovement `json:"replicaSetMovements"`
+}
+
+// ObjectiveValues contains the values for each optimization objective
+type ObjectiveValues struct {
+	// Cost is the effective cost objective value
+	Cost float64 `json:"cost"`
+
+	// Disruption is the disruption objective value
+	Disruption float64 `json:"disruption"`
+
+	// Balance is the balance objective value
+	Balance float64 `json:"balance"`
+}
+
+// ReplicaSetMovement represents a ReplicaSet-level movement recommendation with atomic slot tracking
+type ReplicaSetMovement struct {
+	// ReplicaSetName is the name of the ReplicaSet
+	ReplicaSetName string `json:"replicaSetName"`
+
+	// Namespace is the namespace of the ReplicaSet
+	Namespace string `json:"namespace"`
+
+	// TargetDistribution specifies how replicas should be distributed across nodes
+	// Key: node name, Value: target number of replicas
+	TargetDistribution map[string]int `json:"targetDistribution"`
+
+	// AvailableSlots tracks remaining scheduling slots (decrements as pods are scheduled)
+	// Key: node name, Value: remaining available slots for atomic reservation
+	AvailableSlots map[string]int `json:"availableSlots"`
+
+	// ScheduledCount tracks how many pods have been successfully scheduled to each node
+	// Key: node name, Value: number of pods already scheduled via this hint
+	ScheduledCount map[string]int `json:"scheduledCount,omitempty"`
+
+	// Reason provides the optimization rationale for this movement
+	Reason string `json:"reason"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

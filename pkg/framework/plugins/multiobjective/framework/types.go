@@ -1,20 +1,5 @@
 package framework
 
-// Default constants for the plugin
-const (
-	// Algorithm defaults
-	DefaultPopulationSize       = 400
-	DefaultMaxGenerations       = 1000
-	DefaultCrossoverProbability = 0.90
-	DefaultMutationProbability  = 0.30
-
-	// Weight defaults
-	DefaultWeightCost       = 0.33
-	DefaultWeightDisruption = 0.33
-	DefaultWeightBalance    = 0.34
-	DefaultTournamentSize   = 3
-)
-
 // NodeInfo contains node information for optimization
 type NodeInfo struct {
 	Idx               int

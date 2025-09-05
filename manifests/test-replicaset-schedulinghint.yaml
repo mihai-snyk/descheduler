@@ -1,0 +1,38 @@
+apiVersion: descheduler.io/v1alpha1
+kind: SchedulingHint
+metadata:
+  name: multiobjective-hints-replicaset-example
+  labels:
+    descheduler.io/plugin: "multiobjective"
+    descheduler.io/cluster-fingerprint: "replicaset-example"
+spec:
+  clusterFingerprint: "replicaset-example"
+  expirationTime: "2024-12-08T10:00:00Z"
+  generatedAt: "2024-12-07T10:00:00Z"
+  deschedulerVersion: "descheduler-dev"
+  solutions:
+  - rank: 1
+    weightedScore: 0.1234
+    objectives:
+      cost: 0.2500
+      disruption: 0.3000
+      balance: 0.4500
+    movementCount: 4
+    # ReplicaSet-level movements (preferred)
+    replicaSetMovements:
+    - replicaSetName: "app-a-rs"
+      namespace: "default"
+      targetDistribution:
+        "good-1": 2    # Move 2 replicas to good-1
+        "good-2": 2    # Move 2 replicas to good-2
+        # Total: 4 replicas redistributed from bad nodes
+      reason: "Multi-objective optimization: ReplicaSet redistribution for cost, disruption, and balance"
+    - replicaSetName: "web-a-rs" 
+      namespace: "default"
+      targetDistribution:
+        "good-3": 2    # Move 2 replicas to good-3
+        "good-4": 2    # Move 2 replicas to good-4
+      reason: "Multi-objective optimization: ReplicaSet redistribution for cost, disruption, and balance"
+status:
+  phase: "Active"
+  appliedMovements: 0
