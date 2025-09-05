@@ -40,7 +40,7 @@ GO_VERSION := $(shell (command -v jq > /dev/null && (go mod edit -json | jq -r .
 REGISTRY?=gcr.io/k8s-staging-descheduler
 
 # IMAGE is the image name of descheduler
-IMAGE:=descheduler:$(VERSION)
+IMAGE:=paravirtualtishu/descheduler:$(VERSION)
 
 # IMAGE_GCLOUD is the image name of descheduler in the remote registry
 IMAGE_GCLOUD:=$(REGISTRY)/descheduler:$(VERSION)
@@ -84,6 +84,7 @@ image.arm:
 
 image.arm64:
 	$(CONTAINER_ENGINE) build --build-arg VERSION="$(VERSION)" --build-arg ARCH="arm64" -t $(IMAGE)-arm64 .
+	$(CONTAINER_ENGINE) push $(IMAGE)-arm64
 
 push: image
 	gcloud auth configure-docker

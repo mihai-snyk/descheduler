@@ -11,7 +11,7 @@ ${OS_OUTPUT_BINPATH}/client-gen \
     --go-header-file "hack/boilerplate/boilerplate.go.txt" \
     --clientset-name "versioned" \
     --input-base "sigs.k8s.io/descheduler/pkg/api" \
-    --input "descheduler.io/v1alpha1" \
+    --input "v1alpha1" \
     --output-pkg "sigs.k8s.io/descheduler/pkg/generated/clientset" \
     --output-dir "." \
     -v 2

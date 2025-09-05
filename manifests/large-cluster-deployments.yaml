@@ -15,6 +15,7 @@ spec:
       labels:
         app: frontend
     spec:
+      schedulerName: multi-objective-scheduler
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -66,6 +67,7 @@ spec:
       labels:
         app: api
     spec:
+      schedulerName: multi-objective-scheduler
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -117,6 +119,7 @@ spec:
       labels:
         app: cache
     spec:
+      schedulerName: multi-objective-scheduler
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -168,6 +171,7 @@ spec:
       labels:
         app: worker
     spec:
+      schedulerName: multi-objective-scheduler
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -219,6 +223,7 @@ spec:
       labels:
         app: test-runner
     spec:
+      schedulerName: multi-objective-scheduler
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

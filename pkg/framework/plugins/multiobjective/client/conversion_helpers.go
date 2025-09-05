@@ -35,6 +35,8 @@ func GenerateHintName(clusterFingerprint string) string {
 // ConvertOptimizationResults converts multi-objective optimization results to a SchedulingHint
 func ConvertOptimizationResults(
 	clusterFingerprint string,
+	clusterNodes []string,
+	originalReplicaSetDistribution []v1alpha1.ReplicaSetDistribution,
 	results []OptimizationResult,
 	nodes []framework.NodeInfo,
 	pods []framework.PodInfo,
@@ -57,10 +59,12 @@ func ConvertOptimizationResults(
 			},
 		},
 		Spec: v1alpha1.SchedulingHintSpec{
-			ClusterFingerprint: clusterFingerprint,
-			ExpirationTime:     &expirationTime,
-			GeneratedAt:        &now,
-			DeschedulerVersion: deschedulerVersion,
+			ClusterFingerprint:             clusterFingerprint,
+			ClusterNodes:                   clusterNodes,
+			OriginalReplicaSetDistribution: originalReplicaSetDistribution,
+			ExpirationTime:                 &expirationTime,
+			GeneratedAt:                    &now,
+			DeschedulerVersion:             deschedulerVersion,
 		},
 	}
 

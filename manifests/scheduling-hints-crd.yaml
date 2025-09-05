@@ -17,7 +17,33 @@ spec:
             properties:
               clusterFingerprint:
                 type: string
-                description: "SHA256 hash of the cluster state (sorted node and pod names)"
+                description: "Hash of the cluster state for quick comparison"
+              clusterNodes:
+                type: array
+                items:
+                  type: string
+                description: "List of node names that existed when solutions were generated"
+              originalReplicaSetDistribution:
+                type: array
+                description: "ReplicaSet distribution when optimization was performed"
+                items:
+                  type: object
+                  properties:
+                    namespace:
+                      type: string
+                      description: "Namespace of the ReplicaSet"
+                    replicaSetName:
+                      type: string
+                      description: "Name of the ReplicaSet"
+                    nodeDistribution:
+                      type: object
+                      additionalProperties:
+                        type: integer
+                      description: "Distribution of pods across nodes (node name -> pod count)"
+                  required:
+                  - namespace
+                  - replicaSetName
+                  - nodeDistribution
               solutions:
                 type: array
                 description: "Array of optimization solutions from NSGA-II"
@@ -103,6 +129,8 @@ spec:
                 description: "Version of descheduler that generated these hints"
             required:
             - clusterFingerprint
+            - clusterNodes
+            - originalReplicaSetDistribution
             - solutions
             - expirationTime
             - generatedAt
@@ -144,3 +172,4 @@ spec:
     kind: SchedulingHint
     shortNames:
     - hints
+    - hint

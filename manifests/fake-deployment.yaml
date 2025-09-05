@@ -13,6 +13,7 @@ spec:
       labels:
         app: fake-pod
     spec:
+      schedulerName: multi-objective-scheduler
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

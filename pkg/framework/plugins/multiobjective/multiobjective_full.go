@@ -139,6 +139,13 @@ func (m *MultiObjective) Balance(ctx context.Context, nodes []*v1.Node) *framewo
 		allPods = append(allPods, pods...)
 	}
 
+	// Safety check: ensure all pods are properly scheduled
+	if unscheduledCount := m.checkForUnscheduledPods(ctx); unscheduledCount > 0 {
+		logger.Info("Skipping optimization due to unscheduled pods - waiting for stable cluster state",
+			"unscheduledPods", unscheduledCount)
+		return nil
+	}
+
 	// Get PDBs for the cluster
 	pdbs, err := m.getPDBs(ctx)
 	if err != nil {
@@ -208,6 +215,71 @@ type solutionResult struct {
 	objectives      []float64
 	normalizedScore float64
 	movementCount   int
+}
+
+// checkForUnscheduledPods checks for pods that are not properly scheduled
+// Returns the count of unscheduled pods that should prevent optimization
+func (m *MultiObjective) checkForUnscheduledPods(ctx context.Context) int {
+	// Get all pods in the cluster (not just on nodes)
+	allPods, err := m.handle.ClientSet().CoreV1().Pods("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		klog.V(2).ErrorS(err, "Failed to list all pods for scheduling check")
+		return 0 // Assume safe if we can't check
+	}
+
+	unscheduledCount := 0
+	for _, pod := range allPods.Items {
+		// Skip pods we don't care about
+		if m.shouldSkipPodForSchedulingCheck(&pod) {
+			continue
+		}
+
+		// Check if pod is unscheduled
+		if m.isPodUnscheduled(&pod) {
+			unscheduledCount++
+			klog.V(3).InfoS("Found unscheduled pod",
+				"pod", klog.KObj(&pod),
+				"phase", pod.Status.Phase,
+				"nodeName", pod.Spec.NodeName)
+		}
+	}
+
+	return unscheduledCount
+}
+
+// shouldSkipPodForSchedulingCheck determines if a pod should be ignored in scheduling checks
+func (m *MultiObjective) shouldSkipPodForSchedulingCheck(pod *v1.Pod) bool {
+	// Skip pods that are already completed or failed
+	if pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+		return true
+	}
+
+	// Skip system pods that we filter out anyway
+	if m.podFilter != nil && !m.podFilter(pod) {
+		return true
+	}
+
+	return false
+}
+
+// isPodUnscheduled checks if a pod is in an unscheduled state
+func (m *MultiObjective) isPodUnscheduled(pod *v1.Pod) bool {
+	// Pod is unscheduled if it's pending and has no node assigned
+	if pod.Status.Phase == v1.PodPending && pod.Spec.NodeName == "" {
+		return true
+	}
+
+	// Also check for pods that failed to schedule (have SchedulingGated condition)
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == v1.PodScheduled && condition.Status == v1.ConditionFalse {
+			// Check if it's a real scheduling failure, not just waiting
+			if condition.Reason == v1.PodReasonUnschedulable {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func (m *MultiObjective) getPDBs(ctx context.Context) ([]*policyv1.PodDisruptionBudget, error) {
@@ -667,6 +739,177 @@ func (m *MultiObjective) calculateFeasibleMovements(targetAssignment []int, pods
 	return feasibleMoves
 }
 
+// detectNodeDelta checks if ANY nodes have been added or removed
+// Returns true if there are changes, false if nodes are unchanged
+func (m *MultiObjective) detectNodeDelta(hintNodes []string, currentNodes []framework.NodeInfo) bool {
+	// Quick length check first
+	if len(hintNodes) != len(currentNodes) {
+		m.logger.V(3).Info("Node count changed",
+			"hintNodes", len(hintNodes),
+			"currentNodes", len(currentNodes))
+		return true // Changes detected
+	}
+
+	// Create set of current node names
+	currentNodeSet := make(map[string]bool)
+	for _, node := range currentNodes {
+		currentNodeSet[node.Name] = true
+	}
+
+	// Check if any hint nodes are missing
+	for _, hintNode := range hintNodes {
+		if !currentNodeSet[hintNode] {
+			m.logger.V(3).Info("Node removed since hint", "node", hintNode)
+			return true // Changes detected
+		}
+	}
+
+	// Check if any new nodes were added
+	hintNodeSet := make(map[string]bool)
+	for _, hintNode := range hintNodes {
+		hintNodeSet[hintNode] = true
+	}
+
+	for _, currentNode := range currentNodes {
+		if !hintNodeSet[currentNode.Name] {
+			m.logger.V(3).Info("Node added since hint", "node", currentNode.Name)
+			return true // Changes detected
+		}
+	}
+
+	return false // No changes detected
+}
+
+// Simple pod delta structure for tracking changes
+type PodDelta struct {
+	AddedPods   []framework.PodInfo
+	RemovedPods []framework.PodInfo
+}
+
+// reconstructOldPodState reconstructs the old pod state from the structured ReplicaSet distribution
+func (m *MultiObjective) reconstructOldPodState(hint *v1alpha1.SchedulingHint, nodes []framework.NodeInfo) []framework.PodInfo {
+	// Create node name to index mapping
+	nodeNameToIdx := make(map[string]int)
+	for i, node := range nodes {
+		nodeNameToIdx[node.Name] = i
+	}
+
+	oldPods := []framework.PodInfo{}
+	podIdx := 0
+
+	// Reconstruct pods from the structured distribution
+	for _, rsDist := range hint.Spec.OriginalReplicaSetDistribution {
+		for nodeName, podCount := range rsDist.NodeDistribution {
+			nodeIdx, exists := nodeNameToIdx[nodeName]
+			if !exists {
+				m.logger.V(3).Info("Skipping pods on unknown node", "node", nodeName)
+				continue
+			}
+
+			// Create pods for this node
+			for i := 0; i < podCount; i++ {
+				pod := framework.PodInfo{
+					Idx:            podIdx,
+					Name:           fmt.Sprintf("%s-pod-%d", rsDist.ReplicaSetName, podIdx),
+					Namespace:      rsDist.Namespace,
+					Node:           nodeIdx,
+					ReplicaSetName: rsDist.ReplicaSetName,
+					// Default values for other fields
+					CPURequest:             100,               // Default CPU request
+					MemRequest:             128 * 1024 * 1024, // Default 128Mi
+					MaxUnavailableReplicas: 1,
+				}
+				oldPods = append(oldPods, pod)
+				podIdx++
+			}
+		}
+	}
+
+	m.logger.V(2).Info("Reconstructed old pod state from structured distribution",
+		"totalPods", len(oldPods),
+		"replicaSets", len(hint.Spec.OriginalReplicaSetDistribution))
+
+	return oldPods
+}
+
+// detectPodDelta compares old and current pod states and returns actual pod differences
+func (m *MultiObjective) detectPodDelta(oldPods, currentPods []framework.PodInfo) PodDelta {
+	// Group pods by ReplicaSet for comparison
+	oldRS := make(map[string][]framework.PodInfo)
+	currentRS := make(map[string][]framework.PodInfo)
+
+	for _, pod := range oldPods {
+		rsKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.ReplicaSetName)
+		oldRS[rsKey] = append(oldRS[rsKey], pod)
+	}
+
+	for _, pod := range currentPods {
+		rsKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.ReplicaSetName)
+		currentRS[rsKey] = append(currentRS[rsKey], pod)
+	}
+
+	delta := PodDelta{
+		AddedPods:   []framework.PodInfo{},
+		RemovedPods: []framework.PodInfo{},
+	}
+
+	// Find all ReplicaSets (union of old and current)
+	allReplicaSets := make(map[string]bool)
+	for rsKey := range oldRS {
+		allReplicaSets[rsKey] = true
+	}
+	for rsKey := range currentRS {
+		allReplicaSets[rsKey] = true
+	}
+
+	// Compare each ReplicaSet
+	for rsKey := range allReplicaSets {
+		oldPods := oldRS[rsKey]
+		currentPods := currentRS[rsKey]
+
+		oldCount := len(oldPods)
+		currentCount := len(currentPods)
+
+		m.logger.V(3).Info("ReplicaSet comparison",
+			"replicaSet", rsKey,
+			"oldCount", oldCount,
+			"currentCount", currentCount)
+
+		if oldCount == 0 && currentCount > 0 {
+			// New ReplicaSet - all current pods are additions
+			delta.AddedPods = append(delta.AddedPods, currentPods...)
+			m.logger.V(2).Info("ReplicaSet added", "rs", rsKey, "addedPods", currentCount)
+
+		} else if oldCount > 0 && currentCount == 0 {
+			// ReplicaSet removed - all old pods are removals
+			delta.RemovedPods = append(delta.RemovedPods, oldPods...)
+			m.logger.V(2).Info("ReplicaSet removed", "rs", rsKey, "removedPods", oldCount)
+
+		} else if oldCount != currentCount {
+			// ReplicaSet scaled - calculate difference
+			if currentCount > oldCount {
+				// Scaled up - add the extra pods
+				extraCount := currentCount - oldCount
+				delta.AddedPods = append(delta.AddedPods, currentPods[oldCount:]...)
+				m.logger.V(2).Info("ReplicaSet scaled up", "rs", rsKey, "old", oldCount, "new", currentCount, "added", extraCount)
+			} else {
+				// Scaled down - remove the missing pods
+				extraCount := oldCount - currentCount
+				delta.RemovedPods = append(delta.RemovedPods, oldPods[currentCount:]...)
+				m.logger.V(2).Info("ReplicaSet scaled down", "rs", rsKey, "old", oldCount, "new", currentCount, "removed", extraCount)
+			}
+		}
+		// If oldCount == currentCount, no changes for this ReplicaSet
+	}
+
+	return delta
+}
+
+// hasPodChanges checks if there are any pod changes in the delta
+func (m *MultiObjective) hasPodChanges(delta PodDelta) bool {
+	return len(delta.AddedPods) > 0 || len(delta.RemovedPods) > 0
+}
+
 // KubernetesProblem implementation
 type KubernetesProblem struct {
 	nodes       []framework.NodeInfo
@@ -799,6 +1042,9 @@ func (m *MultiObjective) countTotalMoves(assignment []int, pods []framework.PodI
 
 // createClusterFingerprint creates a deterministic hash of the current cluster state using ReplicaSets
 func (m *MultiObjective) createClusterFingerprint(nodes []framework.NodeInfo, pods []framework.PodInfo) string {
+	// Use the shared function to get ReplicaSet distribution
+	replicaSetDistribution := m.createReplicaSetDistribution(nodes, pods)
+
 	// Collect node names (nodes are stable)
 	nodeNames := make([]string, len(nodes))
 	for i, node := range nodes {
@@ -806,9 +1052,39 @@ func (m *MultiObjective) createClusterFingerprint(nodes []framework.NodeInfo, po
 	}
 	sort.Strings(nodeNames) // Sort for deterministic ordering
 
-	// Collect ReplicaSet info instead of individual pods
-	// Group pods by ReplicaSet and count replicas per node
-	replicaSetInfo := make(map[string]map[string]int) // RS -> {node -> count}
+	// Convert ReplicaSet distribution to simple replica counts (ignore node distribution)
+	var replicaSetSpecs []string
+	for _, rsDist := range replicaSetDistribution {
+		rsKey := fmt.Sprintf("%s/%s", rsDist.Namespace, rsDist.ReplicaSetName)
+
+		// Calculate total replicas for this ReplicaSet
+		totalReplicas := 0
+		for _, count := range rsDist.NodeDistribution {
+			totalReplicas += count
+		}
+
+		// Create spec like "namespace/rs-name=4" (just the total count)
+		rsSpec := fmt.Sprintf("%s=%d", rsKey, totalReplicas)
+		replicaSetSpecs = append(replicaSetSpecs, rsSpec)
+	}
+	sort.Strings(replicaSetSpecs) // Sort for deterministic ordering
+
+	// Create cluster specification for hashing (nodes + replica counts only)
+	clusterSpec := fmt.Sprintf("nodes:%s|replicasets:%s",
+		strings.Join(nodeNames, ","),
+		strings.Join(replicaSetSpecs, ";"))
+
+	m.logger.Info("the cluster spec", "spec", clusterSpec)
+
+	// Return hash for compact storage
+	hash := sha256.Sum256([]byte(clusterSpec))
+	return fmt.Sprintf("%x", hash)[:16] // Use first 16 characters for readability
+}
+
+// createReplicaSetDistribution creates the structured ReplicaSet distribution for the hint
+func (m *MultiObjective) createReplicaSetDistribution(nodes []framework.NodeInfo, pods []framework.PodInfo) []v1alpha1.ReplicaSetDistribution {
+	// Group pods by ReplicaSet and count per node
+	replicaSetInfo := make(map[string]map[string]int) // RS key -> {node name -> count}
 
 	for _, pod := range pods {
 		rsKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.ReplicaSetName)
@@ -823,43 +1099,25 @@ func (m *MultiObjective) createClusterFingerprint(nodes []framework.NodeInfo, po
 		replicaSetInfo[rsKey][nodeName]++
 	}
 
-	// Create deterministic string representation
-	replicaSetKeys := make([]string, 0, len(replicaSetInfo))
-	for rsKey := range replicaSetInfo {
-		replicaSetKeys = append(replicaSetKeys, rsKey)
-	}
-	sort.Strings(replicaSetKeys)
+	// Convert to structured format
+	distributions := make([]v1alpha1.ReplicaSetDistribution, 0, len(replicaSetInfo))
 
-	var replicaSetSpecs []string
-	for _, rsKey := range replicaSetKeys {
-		nodeDistribution := replicaSetInfo[rsKey]
-
-		// Sort node names for deterministic ordering
-		nodeNames := make([]string, 0, len(nodeDistribution))
-		for nodeName := range nodeDistribution {
-			nodeNames = append(nodeNames, nodeName)
-		}
-		sort.Strings(nodeNames)
-
-		// Create spec like "namespace/rs-name:node1=2,node2=3"
-		var nodePairs []string
-		for _, nodeName := range nodeNames {
-			count := nodeDistribution[nodeName]
-			nodePairs = append(nodePairs, fmt.Sprintf("%s=%d", nodeName, count))
+	for rsKey, nodeDistribution := range replicaSetInfo {
+		// Parse namespace/replicaset
+		rsKeyParts := strings.Split(rsKey, "/")
+		if len(rsKeyParts) != 2 {
+			continue
 		}
 
-		rsSpec := fmt.Sprintf("%s:%s", rsKey, strings.Join(nodePairs, ","))
-		replicaSetSpecs = append(replicaSetSpecs, rsSpec)
+		distribution := v1alpha1.ReplicaSetDistribution{
+			Namespace:        rsKeyParts[0],
+			ReplicaSetName:   rsKeyParts[1],
+			NodeDistribution: nodeDistribution,
+		}
+		distributions = append(distributions, distribution)
 	}
 
-	// Create fingerprint from nodes and ReplicaSet distribution
-	clusterSpec := fmt.Sprintf("nodes:%s|replicasets:%s",
-		strings.Join(nodeNames, ","),
-		strings.Join(replicaSetSpecs, ";"))
-
-	// Create hash
-	hash := sha256.Sum256([]byte(clusterSpec))
-	return fmt.Sprintf("%x", hash)[:16] // Use first 16 characters for readability
+	return distributions
 }
 
 // storeSchedulingHints stores all solutions as scheduling hints using the generated typed client
@@ -878,9 +1136,20 @@ func (m *MultiObjective) storeSchedulingHints(ctx context.Context, results []sol
 		}
 	}
 
+	// Create node names list
+	nodeNames := make([]string, len(nodes))
+	for i, node := range nodes {
+		nodeNames[i] = node.Name
+	}
+
+	// Create ReplicaSet distribution
+	replicaSetDistribution := m.createReplicaSetDistribution(nodes, pods)
+
 	// Convert to SchedulingHint CR
 	hint := client.ConvertOptimizationResults(
 		clusterFingerprint,
+		nodeNames,
+		replicaSetDistribution,
 		optimizationResults,
 		nodes,
 		pods,
@@ -958,16 +1227,6 @@ func (m *MultiObjective) createSchedulingHintCR(ctx context.Context, hint *v1alp
 		"name", created.Name,
 		"resourceVersion", created.ResourceVersion,
 		"uid", created.UID)
-
-	// Update status to Active
-	created.Status.Phase = v1alpha1.SchedulingHintPhaseActive
-	created.Status.AppliedMovements = 0
-
-	_, err = clientset.Descheduler().SchedulingHints().UpdateStatus(ctx, created, metav1.UpdateOptions{})
-	if err != nil {
-		m.logger.Error(err, "Failed to update SchedulingHint status", "name", created.Name)
-		// Don't fail for status update errors
-	}
 
 	return nil
 }
@@ -1057,19 +1316,19 @@ func (m *MultiObjective) fetchExistingSolutions(ctx context.Context, nodes []fra
 		return nil
 	}
 
-	// First try to get hints for exact cluster fingerprint match
+	// Step 1: Try to get hints for exact cluster fingerprint match
 	exactMatch, err := clientset.Descheduler().SchedulingHints().Get(ctx, client.GenerateHintName(currentFingerprint), metav1.GetOptions{})
 	if err == nil {
-		m.logger.Info("Found exact cluster fingerprint match",
+		m.logger.Info("Step 1: Found exact cluster fingerprint match - using as seed",
 			"fingerprint", currentFingerprint,
 			"solutions", len(exactMatch.Spec.Solutions))
 		return m.convertSchedulingHintToSolutions(exactMatch, nodes, pods)
 	}
 
-	m.logger.V(2).Info("No exact cluster fingerprint match, looking for latest hints",
+	m.logger.V(2).Info("Step 2: No exact cluster fingerprint match, fetching latest hint",
 		"currentFingerprint", currentFingerprint, "error", err.Error())
 
-	// No exact match - get the most recent SchedulingHint from any cluster state
+	// Step 2: No exact match - get the most recent SchedulingHint from any cluster state
 	allHints, err := clientset.Descheduler().SchedulingHints().List(ctx, metav1.ListOptions{
 		LabelSelector: "descheduler.io/plugin=multiobjective",
 	})
@@ -1099,7 +1358,40 @@ func (m *MultiObjective) fetchExistingSolutions(ctx context.Context, nodes []fra
 			"age", time.Since(latestHint.CreationTimestamp.Time).Round(time.Second),
 			"solutions", len(latestHint.Spec.Solutions))
 
-		return m.convertSchedulingHintToSolutions(latestHint, nodes, pods)
+		// Step 3: Check for node changes first (simple and fast)
+		if m.detectNodeDelta(latestHint.Spec.ClusterNodes, nodes) {
+			m.logger.Info("Step 3: Node changes detected - discarding old solutions and starting fresh",
+				"oldFingerprint", latestHint.Spec.ClusterFingerprint,
+				"newFingerprint", currentFingerprint)
+			return nil
+		}
+
+		// Step 4: Nodes unchanged - check for pod changes
+		m.logger.Info("Step 4: Nodes unchanged - checking for pod changes")
+
+		// Create old pod state from the hint (reconstruct from first solution)
+		oldPods := m.reconstructOldPodState(latestHint, nodes)
+
+		// Convert hint to get old pod/node state for comparison
+		oldSolutions := m.convertSchedulingHintToSolutions(latestHint, nodes, pods)
+		if len(oldSolutions) == 0 {
+			m.logger.Info("No valid solutions from hint - starting fresh")
+			return nil
+		}
+
+		// Detect pod delta
+		delta := m.detectPodDelta(oldPods, pods)
+		// Step 5: If pod changes detected, skip hints and start fresh
+		if m.hasPodChanges(delta) {
+			m.logger.Info("Step 5: Pod changes detected - discarding old solutions and starting fresh",
+				"addedPods", len(delta.AddedPods),
+				"removedPods", len(delta.RemovedPods))
+			return nil
+		}
+
+		// Step 6: No pod changes - use solutions as-is
+		m.logger.Info("Step 6: No pod changes detected - using existing solutions")
+		return oldSolutions
 	}
 
 	return nil
@@ -1109,17 +1401,9 @@ func (m *MultiObjective) fetchExistingSolutions(ctx context.Context, nodes []fra
 func (m *MultiObjective) convertSchedulingHintToSolutions(hint *v1alpha1.SchedulingHint, nodes []framework.NodeInfo, pods []framework.PodInfo) []solutionResult {
 	solutions := make([]solutionResult, 0, len(hint.Spec.Solutions))
 
-	// Create node name to index mapping
 	nodeNameToIdx := make(map[string]int)
 	for i, node := range nodes {
 		nodeNameToIdx[node.Name] = i
-	}
-
-	// Create pod name to index mapping
-	podNameToIdx := make(map[string]int)
-	for i, pod := range pods {
-		podKey := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
-		podNameToIdx[podKey] = i
 	}
 
 	for _, solution := range hint.Spec.Solutions {
@@ -1173,7 +1457,8 @@ func (m *MultiObjective) convertSchedulingHintToSolutions(hint *v1alpha1.Schedul
 
 	m.logger.Info("Converted SchedulingHint to solutions for seeding",
 		"originalSolutions", len(hint.Spec.Solutions),
-		"convertedSolutions", len(solutions))
+		"convertedSolutions", len(solutions),
+		"discarded", len(hint.Spec.Solutions)-len(solutions))
 
 	return solutions
 }

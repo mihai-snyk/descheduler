@@ -26,13 +26,20 @@ spec:
         "good-1": 2    # Move 2 replicas to good-1
         "good-2": 2    # Move 2 replicas to good-2
         # Total: 4 replicas redistributed from bad nodes
+      availableSlots:
+        "good-1": 2    # 2 slots available for reservation
+        "good-2": 2    # 2 slots available for reservation
       reason: "Multi-objective optimization: ReplicaSet redistribution for cost, disruption, and balance"
     - replicaSetName: "web-a-rs" 
       namespace: "default"
       targetDistribution:
         "good-3": 2    # Move 2 replicas to good-3
         "good-4": 2    # Move 2 replicas to good-4
+      availableSlots:
+        "good-3": 2    # 2 slots available for reservation
+        "good-4": 2    # 2 slots available for reservation
       reason: "Multi-objective optimization: ReplicaSet redistribution for cost, disruption, and balance"
+
 status:
   phase: "Active"
   appliedMovements: 0

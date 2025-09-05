@@ -1,5 +1,5 @@
 ---
-# Group A Deployments - Intentionally placed on BAD (expensive) nodes
+# Group A Deployments - Prefer BAD (expensive) nodes initially but allow all nodes
 # app-a deployment (4 replicas, MaxUnavailable: 2)
 apiVersion: apps/v1
 kind: Deployment
@@ -17,8 +17,15 @@ spec:
         app: app-a
     spec:
       schedulerName: multi-objective-scheduler
-      nodeSelector:
-        eks.amazonaws.com/capacityType: "on-demand"  # Force to BAD nodes initially
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values: ["on-demand"]
       tolerations:
       - key: kwok.x-k8s.io/node
         operator: Exists
@@ -52,8 +59,15 @@ spec:
         app: web-a
     spec:
       schedulerName: multi-objective-scheduler
-      nodeSelector:
-        eks.amazonaws.com/capacityType: "on-demand"  # Force to BAD nodes initially
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values: ["on-demand"]
       tolerations:
       - key: kwok.x-k8s.io/node
         operator: Exists
@@ -70,7 +84,7 @@ spec:
             memory: 1Gi
 
 ---
-# Group B Deployments - Already efficiently placed on GOOD (cheap) nodes
+# Group B Deployments - Prefer GOOD (cheap) nodes but allow all nodes
 # app-b deployment (4 replicas, MaxUnavailable: 2)
 apiVersion: apps/v1
 kind: Deployment
@@ -88,8 +102,15 @@ spec:
         app: app-b
     spec:
       schedulerName: multi-objective-scheduler
-      nodeSelector:
-        eks.amazonaws.com/capacityType: "spot"  # Already on GOOD nodes
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values: ["spot"]
       tolerations:
       - key: kwok.x-k8s.io/node
         operator: Exists
@@ -123,8 +144,15 @@ spec:
         app: web-b
     spec:
       schedulerName: multi-objective-scheduler
-      nodeSelector:
-        eks.amazonaws.com/capacityType: "spot"  # Already on GOOD nodes
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values: ["spot"]
       tolerations:
       - key: kwok.x-k8s.io/node
         operator: Exists

@@ -1,0 +1,154 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: descheduler-multiobjective
+  namespace: kube-system
+spec:
+  # Run every 2 minutes for demo purposes
+  schedule: "*/2 * * * *"
+  
+  # Keep last 3 successful and 1 failed job for debugging
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  
+  # Allow concurrent runs (set to Forbid if you want to prevent overlapping)
+  concurrencyPolicy: Allow
+  
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: descheduler-multiobjective
+        spec:
+          serviceAccountName: descheduler
+          restartPolicy: OnFailure
+          
+          # Use node affinity to run on control plane if desired
+          affinity:
+            nodeAffinity:
+              preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                preference:
+                  matchExpressions:
+                  - key: node-role.kubernetes.io/control-plane
+                    operator: Exists
+          
+          tolerations:
+          # Tolerate control plane taints
+          - key: node-role.kubernetes.io/control-plane
+            operator: Exists
+            effect: NoSchedule
+          - key: node-role.kubernetes.io/master
+            operator: Exists
+            effect: NoSchedule
+          
+          containers:
+          - name: descheduler
+            image: descheduler:v20250906-descheduler-helm-chart-0.33.0-63-ge80073e66-arm64
+            command:
+            - "/bin/descheduler"
+            args:
+            - "--policy-config-file=/policy/policy.yaml"
+            - "--v=2"
+
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            
+            volumeMounts:
+            - name: policy-config
+              mountPath: /policy
+              readOnly: true
+          
+          volumes:
+          - name: policy-config
+            configMap:
+              name: descheduler-policy-configmap
+
+---
+# ConfigMap with descheduler policy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: descheduler-policy-configmap
+  namespace: kube-system
+data:
+  policy.yaml: |
+    apiVersion: "descheduler/v1alpha1"
+    kind: "DeschedulerPolicy"
+    profiles:
+    - name: default
+      pluginConfig:
+      - name: "MultiObjective"
+        args:
+          weights:
+            cost: 0.90
+            disruption: 0.10
+            balance: 0.00
+      plugins:
+        balance:
+          enabled:
+          - "MultiObjective"
+
+---
+# ServiceAccount for descheduler
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: descheduler
+  namespace: kube-system
+
+---
+# ClusterRole for descheduler permissions
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: descheduler
+rules:
+# Core permissions for descheduler operation
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "delete"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
+- apiGroups: ["apps"]
+  resources: ["replicasets", "deployments"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+
+# Permissions for SchedulingHint CRs
+- apiGroups: ["descheduler.io"]
+  resources: ["schedulinghints"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Events for logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create"]
+
+---
+# ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: descheduler
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: descheduler
+subjects:
+- kind: ServiceAccount
+  name: descheduler
+  namespace: kube-system

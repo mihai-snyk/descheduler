@@ -36,9 +36,14 @@ type SchedulingHint struct {
 
 // SchedulingHintSpec defines the desired state of SchedulingHint
 type SchedulingHintSpec struct {
-	// ClusterFingerprint is a SHA256 hash of the cluster state (sorted node and pod names)
-	// This field is used by multi-objective optimization to match hints to cluster states
+	// ClusterFingerprint is a hash of the cluster state for quick comparison
 	ClusterFingerprint string `json:"clusterFingerprint"`
+
+	// ClusterNodes contains the list of node names that existed when solutions were generated
+	ClusterNodes []string `json:"clusterNodes"`
+
+	// OriginalReplicaSetDistribution stores the ReplicaSet distribution when optimization was performed
+	OriginalReplicaSetDistribution []ReplicaSetDistribution `json:"originalReplicaSetDistribution"`
 
 	// Solutions contains optimization solutions from multi-objective algorithms
 	Solutions []OptimizationSolution `json:"solutions"`
@@ -51,6 +56,18 @@ type SchedulingHintSpec struct {
 
 	// DeschedulerVersion is the version of descheduler that generated these hints
 	DeschedulerVersion string `json:"deschedulerVersion,omitempty"`
+}
+
+// ReplicaSetDistribution represents the distribution of a ReplicaSet across nodes
+type ReplicaSetDistribution struct {
+	// Namespace of the ReplicaSet
+	Namespace string `json:"namespace"`
+
+	// ReplicaSetName is the name of the ReplicaSet
+	ReplicaSetName string `json:"replicaSetName"`
+
+	// NodeDistribution maps node names to the number of pods on each node
+	NodeDistribution map[string]int `json:"nodeDistribution"`
 }
 
 // SchedulingHintStatus defines the observed state of SchedulingHint
