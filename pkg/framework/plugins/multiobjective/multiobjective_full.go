@@ -37,6 +37,7 @@ import (
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/descheduler/pkg/api/v1alpha1"
+	"sigs.k8s.io/descheduler/pkg/descheduler/evictions"
 	podutil "sigs.k8s.io/descheduler/pkg/descheduler/pod"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/algorithms"
 	"sigs.k8s.io/descheduler/pkg/framework/plugins/multiobjective/client"
@@ -189,22 +190,23 @@ func (m *MultiObjective) Balance(ctx context.Context, nodes []*v1.Node) *framewo
 	if len(results) > 0 {
 		bestSolution := results[0]
 
-		// Calculate feasible intermediate moves respecting PDBs
 		feasibleMoves := m.calculateFeasibleMovements(bestSolution.assignment, podInfos)
 
-		// Print intermediate moves (without actually evicting)
 		m.printIntermediateMoves(logger, feasibleMoves, bestSolution.assignment, nodeInfos, podInfos)
 
-		// Create cluster fingerprint
 		clusterFingerprint := m.createClusterFingerprint(nodeInfos, podInfos)
 		logger.Info("Cluster fingerprint", "fingerprint", clusterFingerprint)
 
-		// Store all solutions as scheduling hints
 		err := m.storeSchedulingHints(ctx, results, nodeInfos, podInfos, clusterFingerprint)
 		if err != nil {
-			logger.Error(err, "Failed to store scheduling hints")
-			// Don't fail the plugin, just log the error
+			logger.Error(err, "Failed to store scheduling hints - SKIPPING EVICTIONS for safety")
+			return nil // Don't evict if we can't store hints
 		}
+		logger.Info("Successfully stored scheduling hints - ready for coordinated evictions")
+
+		// Execute feasible evictions AFTER hints are stored
+		evictedCount := m.executeFeasibleEvictions(ctx, logger, feasibleMoves, podInfos, nodeInfos)
+		logger.Info("Completed pod evictions", "evictedPods", evictedCount)
 	}
 
 	return nil
@@ -1038,6 +1040,112 @@ func (m *MultiObjective) countTotalMoves(assignment []int, pods []framework.PodI
 		}
 	}
 	return count
+}
+
+// executeFeasibleEvictions performs the actual pod evictions for feasible moves
+func (m *MultiObjective) executeFeasibleEvictions(ctx context.Context, logger klog.Logger, feasibleMoves []int, pods []framework.PodInfo, nodes []framework.NodeInfo) int {
+	if len(feasibleMoves) == 0 {
+		logger.Info("No pods to evict - all moves blocked by PDB constraints")
+		return 0
+	}
+
+	// First, get all actual pod objects from the cluster
+	allPodsOnNodes := make(map[string][]*v1.Pod)
+	for _, node := range nodes {
+		podsOnNode, err := podutil.ListAllPodsOnANode(node.Name, m.handle.GetPodsAssignedToNodeFunc(), m.podFilter)
+		if err != nil {
+			logger.Error(err, "Failed to list pods on node for eviction", "node", node.Name)
+			continue
+		}
+		allPodsOnNodes[node.Name] = podsOnNode
+	}
+
+	evictedCount := 0
+	logger.Info("Starting pod evictions", "totalFeasibleMoves", len(feasibleMoves))
+
+	for _, podIdx := range feasibleMoves {
+		pod := pods[podIdx]
+
+		// Find the actual pod object with complete metadata
+		var actualPod *v1.Pod
+		currentNodeName := nodes[pod.Node].Name
+
+		logger.V(2).Info("Searching for actual pod",
+			"podName", pod.Name,
+			"namespace", pod.Namespace,
+			"expectedNode", currentNodeName,
+			"availableNodes", len(allPodsOnNodes))
+
+		if podsOnNode, exists := allPodsOnNodes[currentNodeName]; exists {
+			logger.V(2).Info("Found pods on node", "node", currentNodeName, "podCount", len(podsOnNode))
+			for _, p := range podsOnNode {
+				if p.Name == pod.Name && p.Namespace == pod.Namespace {
+					actualPod = p
+					logger.V(2).Info("Found matching pod",
+						"pod", klog.KObj(p),
+						"uid", p.UID,
+						"hasUID", p.UID != "")
+					break
+				}
+			}
+		} else {
+			logger.Info("Node not found in pod cache", "expectedNode", currentNodeName, "availableNodes", func() []string {
+				var nodes []string
+				for node := range allPodsOnNodes {
+					nodes = append(nodes, node)
+				}
+				return nodes
+			}())
+		}
+
+		if actualPod == nil {
+			logger.Info("Could not find actual pod for eviction - skipping",
+				"podName", pod.Name,
+				"namespace", pod.Namespace,
+				"expectedNode", currentNodeName)
+			continue
+		}
+
+		// Log pod metadata for debugging
+		logger.V(2).Info("Pod eviction metadata check",
+			"pod", klog.KObj(actualPod),
+			"hasOwnerRefs", len(actualPod.OwnerReferences) > 0,
+			"ownerRefs", actualPod.OwnerReferences,
+			"labels", actualPod.Labels)
+
+		// Verify pod has required metadata for eviction
+		if actualPod.UID == "" {
+			logger.Error(nil, "Pod missing UID - cannot evict safely",
+				"pod", klog.KObj(actualPod),
+				"creationTimestamp", actualPod.CreationTimestamp)
+			continue
+		}
+
+		// Attempt eviction with detailed logging
+		logger.V(1).Info("Evicting pod for optimization",
+			"pod", klog.KObj(actualPod),
+			"uid", actualPod.UID,
+			"currentNode", currentNodeName,
+			"replicaSet", pod.ReplicaSetName,
+			"reason", "MultiObjectiveOptimization")
+
+		// Use the descheduler's eviction helper with actual pod object
+		opts := evictions.EvictOptions{StrategyName: "MultiObjective"}
+		err := m.handle.Evictor().Evict(ctx, actualPod, opts)
+		if err != nil {
+			logger.Info("Failed to evict pod - detailed error",
+				"pod", klog.KObj(actualPod),
+				"error", err,
+				"errorType", fmt.Sprintf("%T", err))
+			continue
+		}
+		evictedCount++
+		logger.V(1).Info("Successfully evicted pod",
+			"pod", klog.KObj(actualPod),
+			"evictedCount", evictedCount)
+	}
+
+	return evictedCount
 }
 
 // createClusterFingerprint creates a deterministic hash of the current cluster state using ReplicaSets

@@ -23,9 +23,9 @@ import (
 
 const (
 	// Algorithm defaults
-	DefaultPopulationSize       = 400
-	DefaultMaxGenerations       = 1000
-	DefaultCrossoverProbability = 0.90
+	DefaultPopulationSize       = 300
+	DefaultMaxGenerations       = 300
+	DefaultCrossoverProbability = 0.70
 	DefaultMutationProbability  = 0.30
 	DefaultTournamentSize       = 3
 

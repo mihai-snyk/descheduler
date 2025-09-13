@@ -55,9 +55,9 @@ func NewDisruptionConfig(pods []framework.PodInfo) DisruptionConfig {
 		MaxExpectedColdStart: maxExpectedColdStart,
 		MaxExpectedTimeSlots: float64(maxTimeSlots),
 
-		MovementWeight:  0.70,
-		ColdStartWeight: 0.10,
-		TimeSlotWeight:  0.20,
+		MovementWeight:  0.50,
+		TimeSlotWeight:  0.30,
+		ColdStartWeight: 0.20,
 
 		// Keep it simple with linear penalty
 		MovementPenaltyType:   "linear",

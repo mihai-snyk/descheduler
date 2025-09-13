@@ -485,17 +485,23 @@ func (n *NSGAII) smartMutate(solution *framework.IntegerSolution, problem framew
 		if rand.Float64() < n.MutationRate {
 			currentNode := solution.Variables[i]
 			originalNode := currentNode
-
-			// Build list of valid nodes for this pod
-			validNodes := make([]int, 0, 4) // Pre-allocate small capacity
 			maxNode := solution.Bounds[i].H
-			for nodeID := 0; nodeID <= maxNode; nodeID++ {
-				if nodeID == currentNode {
-					continue // Skip current node
+			maxAttempts := maxNode + 1 // Try up to number of nodes
+
+			// Try random nodes until we find a valid one (early exit optimization)
+			foundValidNode := false
+			for attempt := 0; attempt < maxAttempts; attempt++ {
+				// Pick a random node (excluding current)
+				var candidateNode int
+				for {
+					candidateNode = rand.Intn(maxNode + 1)
+					if candidateNode != currentNode {
+						break
+					}
 				}
 
 				// Temporarily assign to test validity
-				solution.Variables[i] = nodeID
+				solution.Variables[i] = candidateNode
 
 				// Check if all constraints are satisfied
 				valid := true
@@ -507,19 +513,17 @@ func (n *NSGAII) smartMutate(solution *framework.IntegerSolution, problem framew
 				}
 
 				if valid {
-					validNodes = append(validNodes, nodeID)
+					// Found valid node! Use it and exit early
+					foundValidNode = true
+					break
 				}
 			}
 
-			// Restore original assignment
-			solution.Variables[i] = originalNode
-
-			// If we found valid alternatives, pick one randomly
-			if len(validNodes) > 0 {
-				newNode := validNodes[rand.Intn(len(validNodes))]
-				solution.Variables[i] = newNode
+			if !foundValidNode {
+				// No valid alternative found, restore original assignment
+				solution.Variables[i] = originalNode
 			}
-			// Otherwise keep the original assignment (no valid moves)
+			// Otherwise keep the valid node we found
 		}
 	}
 }
